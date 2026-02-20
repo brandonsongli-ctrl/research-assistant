@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>学术引用助手 | Research Citation Assistant</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f5f6fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --primary: #4f6ef7;
+      --primary-hover: #3d5ce8;
+      --text: #1a1d27;
+      --muted: #6b7280;
+      --tag-bg: #eef2ff;
+      --tag-color: #4f6ef7;
+      --success: #10b981;
+      --shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header .logo {
+      width: 32px; height: 32px;
+      background: var(--primary);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 700; font-size: 14px;
+    }
+
+    header h1 { font-size: 17px; font-weight: 600; }
+    header span { font-size: 13px; color: var(--muted); margin-left: 4px; }
+
+    .main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      max-height: calc(100vh - 56px);
+    }
+
+    .panel {
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    .panel-left {
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel-right {
+      background: var(--bg);
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 8px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 280px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.7;
+      resize: vertical;
+      font-family: inherit;
+      background: var(--surface);
+      color: var(--text);
+      transition: border-color .15s;
+    }
+
+    textarea:focus { outline: none; border-color: var(--primary); }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .option-group { display: flex; flex-direction: column; gap: 6px; }
+    .option-group label { font-size: 12px; font-weight: 500; color: var(--muted); }
+
+    select, input[type="number"], input[type="text"] {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      background: var(--surface);
+      color: var(--text);
+      transition: border-color .15s;
+    }
+
+    select:focus, input:focus { outline: none; border-color: var(--primary); }
+
+    .year-row { display: flex; gap: 8px; align-items: center; }
+    .year-row span { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+    .btn-primary {
+      width: 100%;
+      padding: 11px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s, opacity .15s;
+    }
+
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-primary:disabled { opacity: .55; cursor: not-allowed; }
+
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Results */
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .result-count {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .btn-export {
+      padding: 6px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: border-color .15s;
+    }
+
+    .btn-export:hover { border-color: var(--primary); color: var(--primary); }
+
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .sentence-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 6px;
+    }
+
+    .sentence-text {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text);
+      padding: 8px 10px;
+      background: var(--tag-bg);
+      border-radius: 6px;
+      border-left: 3px solid var(--primary);
+      margin-bottom: 12px;
+    }
+
+    .citations-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 8px;
+    }
+
+    .citation-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      transition: border-color .15s;
+    }
+
+    .citation-item:hover { border-color: var(--primary); }
+
+    .citation-body { flex: 1; min-width: 0; }
+
+    .citation-formatted {
+      font-size: 12.5px;
+      line-height: 1.6;
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    .citation-meta {
+      display: flex;
+      gap: 8px;
+      margin-top: 5px;
+      flex-wrap: wrap;
+    }
+
+    .citation-tag {
+      font-size: 11px;
+      background: var(--tag-bg);
+      color: var(--tag-color);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .citation-abstract {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+      line-height: 1.5;
+    }
+
+    .citation-link {
+      font-size: 11px;
+      color: var(--primary);
+      text-decoration: none;
+      word-break: break-all;
+    }
+
+    .citation-link:hover { text-decoration: underline; }
+
+    .btn-copy {
+      flex-shrink: 0;
+      padding: 5px 10px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-size: 11px;
+      cursor: pointer;
+      color: var(--muted);
+      font-family: inherit;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+
+    .btn-copy:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-copy.copied { border-color: var(--success); color: var(--success); }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state .icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+    }
+
+    .empty-state p { font-size: 14px; line-height: 1.6; }
+
+    .error-msg {
+      background: #fff1f0;
+      border: 1px solid #ffa39e;
+      color: #cf1322;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 768px) {
+      .main { grid-template-columns: 1fr; max-height: none; }
+      .panel-left { border-right: none; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">引</div>
+  <h1>学术引用助手</h1>
+  <span>Research Citation Assistant</span>
+</header>
+
+<div class="main">
+  <!-- Left: Input Panel -->
+  <div class="panel panel-left">
+    <div>
+      <div class="section-title">论文文本 / Paper Text</div>
+      <textarea id="text-input"
+        placeholder="粘贴您的论文或段落文本，助手将自动识别需要引用的句子并搜索相关文献。
+
+Paste your paper or paragraph text here. The assistant will automatically detect sentences that need citations and find supporting literature."
+      ></textarea>
+    </div>
+
+    <div>
+      <div class="section-title">引用选项 / Options</div>
+      <div class="options-grid">
+        <div class="option-group">
+          <label>引用格式 / Citation Format</label>
+          <select id="format-select">
+            <option value="apa">APA</option>
+            <option value="mla">MLA</option>
+          </select>
+        </div>
+
+        <div class="option-group">
+          <label>来源筛选 / Source Filter</label>
+          <input type="text" id="sources-input" placeholder="e.g. Nature, Science" />
+        </div>
+
+        <div class="option-group" style="grid-column: 1 / -1;">
+          <label>年份范围 / Year Range</label>
+          <div class="year-row">
+            <input type="number" id="year-start" placeholder="2000" min="1900" max="2026" />
+            <span>—</span>
+            <input type="number" id="year-end" placeholder="2026" min="1900" max="2026" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="find-btn" onclick="findCitations()">
+      查找引用 / Find Citations
+    </button>
+  </div>
+
+  <!-- Right: Results Panel -->
+  <div class="panel panel-right" id="results-panel">
+    <div class="empty-state">
+      <div class="icon">📄</div>
+      <p>粘贴文本后点击「查找引用」<br/>系统将自动识别需要引用的句子<br/>并从学术数据库中匹配相关文献。</p>
+      <p style="margin-top:12px; font-size:12px;">Paste text and click "Find Citations" to begin.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  let lastResults = [];
+
+  async function findCitations() {
+    const text = document.getElementById('text-input').value.trim();
+    if (!text) {
+      alert('请输入论文文本。\nPlease enter paper text.');
+      return;
+    }
+
+    const btn = document.getElementById('find-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>搜索中 / Searching...';
+
+    const panel = document.getElementById('results-panel');
+    panel.innerHTML = '<div class="empty-state"><div class="icon">🔍</div><p>正在分析文本并搜索文献...<br/>Analyzing text and searching literature...</p></div>';
+
+    const payload = {
+      text,
+      format: document.getElementById('format-select').value,
+      sources: document.getElementById('sources-input').value,
+      year_start: document.getElementById('year-start').value || null,
+      year_end: document.getElementById('year-end').value || null,
+    };
+
+    try {
+      const resp = await fetch('/api/find-citations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        panel.innerHTML = `<div class="error-msg">${data.error || '请求失败 / Request failed.'}</div>`;
+        return;
+      }
+
+      lastResults = data.results || [];
+      renderResults(lastResults, payload.format.toUpperCase());
+
+    } catch (err) {
+      panel.innerHTML = `<div class="error-msg">网络错误 / Network error: ${err.message}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '查找引用 / Find Citations';
+    }
+  }
+
+  function renderResults(results, fmt) {
+    const panel = document.getElementById('results-panel');
+
+    if (!results.length) {
+      panel.innerHTML = `<div class="empty-state"><div class="icon">✅</div><p>未检测到需要引用的句子，<br/>或文本中已包含引用标注。<br/><br/>No sentences requiring citations were detected.</p></div>`;
+      return;
+    }
+
+    let html = `<div class="result-header">
+      <span class="result-count">检测到 ${results.length} 个需引用的句子 / ${results.length} sentence(s) need citations</span>
+      <button class="btn-export" onclick="exportAll()">导出全部 / Export All</button>
+    </div>`;
+
+    results.forEach((r, i) => {
+      html += `<div class="result-card">
+        <div class="sentence-label">句子 ${i + 1} / Sentence ${i + 1}</div>
+        <div class="sentence-text">${escHtml(r.sentence)}</div>
+        <div class="citations-label">推荐引用 (${fmt}) / Suggested Citations</div>`;
+
+      r.citations.forEach((c, ci) => {
+        const idBase = `cit-${i}-${ci}`;
+        html += `<div class="citation-item">
+          <div class="citation-body">
+            <div class="citation-formatted" id="${idBase}">${escHtml(c.formatted)}</div>
+            <div class="citation-meta">`;
+
+        if (c.year) html += `<span class="citation-tag">${c.year}</span>`;
+        if (c.venue) html += `<span class="citation-tag">${escHtml(c.venue)}</span>`;
+
+        html += `</div>`;
+
+        if (c.abstract) {
+          html += `<div class="citation-abstract">${escHtml(c.abstract)}${c.abstract.length >= 300 ? '...' : ''}</div>`;
+        }
+
+        if (c.url) {
+          html += `<a class="citation-link" href="${escHtml(c.url)}" target="_blank" rel="noopener">${escHtml(c.url)}</a>`;
+        }
+
+        html += `</div>
+          <button class="btn-copy" onclick="copyCitation('${idBase}', this)">复制</button>
+        </div>`;
+      });
+
+      html += `</div>`;
+    });
+
+    panel.innerHTML = html;
+  }
+
+  function copyCitation(id, btn) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const text = el.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = '已复制 ✓';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = '复制';
+        btn.classList.remove('copied');
+      }, 1800);
+    }).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      btn.textContent = '已复制 ✓';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 1800);
+    });
+  }
+
+  function exportAll() {
+    if (!lastResults.length) return;
+    const fmt = document.getElementById('format-select').value.toUpperCase();
+    let out = `学术引用助手导出 / Research Citation Assistant Export\n`;
+    out += `格式 / Format: ${fmt}\n`;
+    out += `日期 / Date: ${new Date().toLocaleDateString()}\n\n`;
+    out += '='.repeat(60) + '\n\n';
+
+    lastResults.forEach((r, i) => {
+      out += `[句子 ${i + 1}] ${r.sentence}\n\n`;
+      r.citations.forEach((c, ci) => {
+        out += `  [${ci + 1}] ${c.formatted}`;
+        if (c.url) out += `\n       ${c.url}`;
+        out += '\n';
+      });
+      out += '\n';
+    });
+
+    const blob = new Blob([out], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `citations_${fmt}_${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function escHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // Allow Ctrl+Enter to submit
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      findCitations();
+    }
+  });
+</script>
+
+</body>
+</html>
