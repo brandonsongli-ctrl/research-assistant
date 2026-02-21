@@ -360,6 +360,18 @@ Paste your paper or paragraph text here. The assistant will automatically detect
           <input type="text" id="sources-input" placeholder="e.g. Nature, Science" />
         </div>
 
+        <div class="option-group">
+          <label>每句结果数 / Results per Sentence</label>
+          <select id="results-per-sentence">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="5">5</option>
+            <option value="8">8</option>
+            <option value="10">10</option>
+          </select>
+        </div>
+
         <div class="option-group" style="grid-column: 1 / -1;">
           <label>年份范围 / Year Range</label>
           <div class="year-row">
@@ -409,6 +421,7 @@ Paste your paper or paragraph text here. The assistant will automatically detect
       sources: document.getElementById('sources-input').value,
       year_start: document.getElementById('year-start').value || null,
       year_end: document.getElementById('year-end').value || null,
+      results_per_sentence: parseInt(document.getElementById('results-per-sentence').value, 10),
     };
 
     try {

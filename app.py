@@ -42,12 +42,17 @@ def find_citations():
     if sources_raw:
         sources = [s.strip() for s in sources_raw.split(',') if s.strip()]
 
+    try:
+        results_per_sentence = max(1, min(10, int(data.get('results_per_sentence', 3))))
+    except (ValueError, TypeError):
+        results_per_sentence = 3
+
     results = find_citations_for_text(
         text=text,
         citation_format=citation_format,
         year_range=year_range,
         sources=sources or None,
-        results_per_sentence=3,
+        results_per_sentence=results_per_sentence,
     )
 
     return jsonify({'results': results})
