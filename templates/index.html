@@ -21,6 +21,20 @@
       --shadow: 0 1px 4px rgba(0,0,0,.08);
     }
 
+    [data-theme="dark"] {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --primary: #58a6ff;
+      --primary-hover: #79b8ff;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --tag-bg: #1f2937;
+      --tag-color: #58a6ff;
+      --success: #3fb950;
+      --shadow: 0 1px 4px rgba(0,0,0,.4);
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg);
@@ -182,6 +196,8 @@
 
     .btn-export:hover { border-color: var(--primary); color: var(--primary); }
 
+    .export-group { display: flex; gap: 6px; }
+
     .result-card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -291,6 +307,23 @@
     .btn-copy:hover { border-color: var(--primary); color: var(--primary); }
     .btn-copy.copied { border-color: var(--success); color: var(--success); }
 
+    #text-highlight mark {
+      background: #fff3cd;
+      border-radius: 3px;
+      padding: 0 2px;
+    }
+
+    .btn-abstract-toggle {
+      background: none;
+      border: none;
+      font-size: 11px;
+      color: var(--primary);
+      cursor: pointer;
+      padding: 2px 0;
+      font-family: inherit;
+    }
+    .btn-abstract-toggle:hover { text-decoration: underline; }
+
     .empty-state {
       text-align: center;
       padding: 60px 20px;
@@ -313,6 +346,69 @@
       font-size: 13px;
     }
 
+    .text-stats {
+      font-size: 11px;
+      color: var(--muted);
+      text-align: right;
+      margin-top: 4px;
+    }
+
+    .card-toggle {
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-toggle:hover .sentence-text { border-left-color: var(--primary-hover); }
+
+    .toggle-icon {
+      font-size: 12px;
+      color: var(--muted);
+      transition: transform .2s;
+      flex-shrink: 0;
+      margin-left: 8px;
+    }
+
+    .card-body { overflow: hidden; transition: max-height .25s ease; }
+    .card-body.collapsed { max-height: 0 !important; }
+
+    .history-section { margin-top: 4px; }
+    .history-label {
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      user-select: none;
+    }
+    .history-label:hover { color: var(--text); }
+    .history-list {
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color .15s;
+    }
+    .history-item:hover { border-color: var(--primary); color: var(--primary); }
+    .history-item-time { color: var(--muted); flex-shrink: 0; }
+    .history-item-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .history-item-del { color: var(--muted); flex-shrink: 0; font-size: 14px; line-height: 1; }
+    .history-item-del:hover { color: #cf1322; }
+
     @media (max-width: 768px) {
       .main { grid-template-columns: 1fr; max-height: none; }
       .panel-left { border-right: none; border-bottom: 1px solid var(--border); }
@@ -325,6 +421,7 @@
   <div class="logo">引</div>
   <h1>学术引用助手</h1>
   <span>Research Citation Assistant</span>
+  <button id="theme-btn" onclick="toggleTheme()" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;color:var(--muted);font-family:inherit;transition:all .15s;" title="切换暗色模式">🌙</button>
 </header>
 
 <div class="main">
@@ -336,7 +433,16 @@
         placeholder="粘贴您的论文或段落文本，助手将自动识别需要引用的句子并搜索相关文献。
 
 Paste your paper or paragraph text here. The assistant will automatically detect sentences that need citations and find supporting literature."
+        oninput="updateStats()"
       ></textarea>
+      <div class="text-stats" id="text-stats">0 词 / 0 字符</div>
+      <div id="text-highlight" style="display:none;margin-top:8px;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:13px;line-height:1.7;background:var(--surface);white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto;"></div>
+      <div class="history-section" id="history-section" style="display:none;">
+        <div class="history-label" onclick="toggleHistory()">
+          <span id="history-toggle-icon">▶</span> 历史记录 / History (<span id="history-count">0</span>)
+        </div>
+        <div class="history-list" id="history-list" style="display:none;"></div>
+      </div>
     </div>
 
     <div>
@@ -347,12 +453,68 @@ Paste your paper or paragraph text here. The assistant will automatically detect
           <select id="format-select">
             <option value="apa">APA</option>
             <option value="mla">MLA</option>
+            <option value="chicago">Chicago</option>
+            <option value="ieee">IEEE</option>
+            <option value="harvard">Harvard</option>
+            <option value="vancouver">Vancouver</option>
+            <option value="bibtex">BibTeX</option>
           </select>
         </div>
 
         <div class="option-group">
           <label>来源筛选 / Source Filter</label>
           <input type="text" id="sources-input" placeholder="e.g. Nature, Science" />
+        </div>
+
+        <div class="option-group">
+          <label>学科领域 / Field of Study</label>
+          <select id="field-of-study">
+            <option value="">全部 / All</option>
+            <option value="Computer Science">Computer Science</option>
+            <option value="Medicine">Medicine</option>
+            <option value="Biology">Biology</option>
+            <option value="Physics">Physics</option>
+            <option value="Mathematics">Mathematics</option>
+            <option value="Chemistry">Chemistry</option>
+            <option value="Psychology">Psychology</option>
+            <option value="Engineering">Engineering</option>
+            <option value="Economics">Economics</option>
+            <option value="Sociology">Sociology</option>
+            <option value="Environmental Science">Environmental Science</option>
+            <option value="Neuroscience">Neuroscience</option>
+          </select>
+        </div>
+
+        <div class="option-group">
+          <label>每句结果数 / Results per Sentence</label>
+          <select id="results-per-sentence">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="5">5</option>
+            <option value="8">8</option>
+            <option value="10">10</option>
+          </select>
+        </div>
+
+        <div class="option-group">
+          <label>排序方式 / Sort By</label>
+          <select id="sort-by">
+            <option value="citations">引用次数 / Citation Count</option>
+            <option value="relevance">相关性 / Relevance</option>
+          </select>
+        </div>
+
+        <div class="option-group">
+          <label>最低引用量 / Min Citations</label>
+          <select id="min-citations">
+            <option value="0">不限 / Any</option>
+            <option value="10">≥ 10</option>
+            <option value="50">≥ 50</option>
+            <option value="100">≥ 100</option>
+            <option value="500">≥ 500</option>
+            <option value="1000">≥ 1000</option>
+          </select>
         </div>
 
         <div class="option-group" style="grid-column: 1 / -1;">
@@ -365,6 +527,11 @@ Paste your paper or paragraph text here. The assistant will automatically detect
         </div>
       </div>
     </div>
+
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+      <input type="checkbox" id="open-access-only" style="width:auto;" />
+      仅开放获取 / Open Access Only
+    </label>
 
     <button class="btn-primary" id="find-btn" onclick="findCitations()">
       查找引用 / Find Citations
@@ -404,24 +571,143 @@ Paste your paper or paragraph text here. The assistant will automatically detect
       sources: document.getElementById('sources-input').value,
       year_start: document.getElementById('year-start').value || null,
       year_end: document.getElementById('year-end').value || null,
+      results_per_sentence: parseInt(document.getElementById('results-per-sentence').value, 10),
+      open_access_only: document.getElementById('open-access-only').checked,
+      fields_of_study: document.getElementById('field-of-study').value,
+      min_citation_count: parseInt(document.getElementById('min-citations').value, 10),
+      sort_by: document.getElementById('sort-by').value,
     };
 
+    // Stream results sentence by sentence
+    const streamBuffer = {};
+    let streamCount = 0;
+    const fmt = payload.format.toUpperCase();
+
+    function flushStreamResults() {
+      const sortedKeys = Object.keys(streamBuffer).map(Number).sort((a,b)=>a-b);
+      const ordered = sortedKeys.map(k => streamBuffer[k]);
+      lastResults = ordered;
+      if (!ordered.length) return;
+      // Re-render header + append new cards
+      const countEl = panel.querySelector('.result-count');
+      if (countEl) {
+        countEl.textContent = `检测到 ${ordered.length} 个需引用的句子 / ${ordered.length} sentence(s) need citations`;
+      } else {
+        renderResults(ordered, fmt);
+        document.querySelectorAll('.card-body').forEach(el => { el.style.maxHeight = el.scrollHeight + 'px'; });
+      }
+    }
+
     try {
-      const resp = await fetch('/api/find-citations', {
+      const resp = await fetch('/api/stream-citations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
-      const data = await resp.json();
-
       if (!resp.ok) {
-        panel.innerHTML = `<div class="error-msg">${data.error || '请求失败 / Request failed.'}</div>`;
+        const err = await resp.json().catch(() => ({}));
+        panel.innerHTML = `<div class="error-msg">${err.error || '请求失败 / Request failed.'}</div>`;
         return;
       }
 
-      lastResults = data.results || [];
-      renderResults(lastResults, payload.format.toUpperCase());
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let sseBuffer = '';
+
+      // Show skeleton while waiting
+      panel.innerHTML = `<div class="result-header">
+        <span class="result-count">正在搜索... / Searching...</span>
+        <div class="export-group">
+          <button class="btn-export" onclick="exportAll('txt')">TXT</button>
+          <button class="btn-export" onclick="exportAll('bib')">BibTeX</button>
+          <button class="btn-export" onclick="exportAll('ris')">RIS</button>
+          <button class="btn-export" onclick="exportAll('csv')">CSV</button>
+        </div>
+      </div>`;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            if (event.type === 'result') {
+              streamBuffer[event.index] = event.data;
+              streamCount++;
+              // Append new card without full re-render
+              const idx = event.index;
+              const r = event.data;
+              const bodyId = `card-body-${idx}`;
+              let html = `<div class="result-card" id="stream-card-${idx}">
+                <div class="card-toggle" onclick="toggleCard('${bodyId}', this)">
+                  <div>
+                    <div class="sentence-label">
+                      句子 ${streamCount} / Sentence ${streamCount}
+                      ${r.reason ? `<span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);margin-left:6px;">— ${escHtml(r.reason)}</span>` : ''}
+                    </div>
+                    <div class="sentence-text">${escHtml(r.sentence)}</div>
+                  </div>
+                  <span class="toggle-icon">▲</span>
+                </div>
+                <div class="card-body" id="${bodyId}">
+                <div class="citations-label" style="margin-top:8px;">推荐引用 (${fmt}) / Suggested Citations</div>`;
+
+              r.citations.forEach((c, ci) => {
+                const idBase = `cit-${idx}-${ci}`;
+                html += `<div class="citation-item">
+                  <div class="citation-body">
+                    <div class="citation-formatted" id="${idBase}">${escHtml(c.formatted)}</div>
+                    <div class="citation-meta">`;
+                if (c.year) html += `<span class="citation-tag">${c.year}</span>`;
+                if (c.venue) html += `<span class="citation-tag">${escHtml(c.venue)}</span>`;
+                if (c.citation_count != null) html += `<span class="citation-tag">引用 ${c.citation_count}</span>`;
+                if (c.pdf_url) html += `<span class="citation-tag" style="background:#e6f4ea;color:#1a7f37;">Open Access</span>`;
+                if (c.doi_valid === true)  html += `<span class="citation-tag" style="background:#e6f4ea;color:#1a7f37;">DOI ✓</span>`;
+                if (c.doi_valid === false) html += `<span class="citation-tag" style="background:#fff1f0;color:#cf1322;">DOI ✗</span>`;
+                html += `</div>`;
+                if (c.abstract) {
+                  const absId = `abs-${idx}-${ci}`;
+                  const preview = c.abstract.length > 200 ? escHtml(c.abstract.slice(0, 200)) + '…' : escHtml(c.abstract);
+                  html += `<div class="citation-abstract" id="${absId}-preview">${preview}</div>`;
+                  if (c.abstract.length > 200) {
+                    html += `<div class="citation-abstract" id="${absId}-full" style="display:none;">${escHtml(c.abstract)}</div>`;
+                    html += `<button class="btn-abstract-toggle" onclick="toggleAbstract('${absId}', this)">展开摘要 ▾</button>`;
+                  }
+                }
+                const linkUrl = c.pdf_url || c.url;
+                if (linkUrl) {
+                  const label = c.pdf_url ? `PDF: ${escHtml(c.pdf_url)}` : escHtml(c.url);
+                  html += `<a class="citation-link" href="${escHtml(linkUrl)}" target="_blank" rel="noopener">${label}</a>`;
+                }
+                html += `</div><button class="btn-copy" onclick="copyCitation('${idBase}', this)">复制</button></div>`;
+              });
+              html += `</div></div>`;
+
+              panel.insertAdjacentHTML('beforeend', html);
+              const body = document.getElementById(bodyId);
+              if (body) body.style.maxHeight = body.scrollHeight + 'px';
+
+              // Update count
+              const countEl = panel.querySelector('.result-count');
+              if (countEl) countEl.textContent = `已找到 ${streamCount} 个 / Found ${streamCount} sentence(s)`;
+
+            } else if (event.type === 'done') {
+              if (!streamCount) {
+                panel.innerHTML = `<div class="empty-state"><div class="icon">✅</div><p>未检测到需要引用的句子。<br/>No sentences requiring citations were detected.</p></div>`;
+              } else {
+                const countEl = panel.querySelector('.result-count');
+                if (countEl) countEl.textContent = `检测到 ${streamCount} 个需引用的句子 / ${streamCount} sentence(s) need citations`;
+                if (lastResults.length) saveHistory(text, lastResults, payload.format);
+              }
+            }
+          } catch { /* malformed SSE line, skip */ }
+        }
+      }
 
     } catch (err) {
       panel.innerHTML = `<div class="error-msg">网络错误 / Network error: ${err.message}</div>`;
@@ -441,14 +727,29 @@ Paste your paper or paragraph text here. The assistant will automatically detect
 
     let html = `<div class="result-header">
       <span class="result-count">检测到 ${results.length} 个需引用的句子 / ${results.length} sentence(s) need citations</span>
-      <button class="btn-export" onclick="exportAll()">导出全部 / Export All</button>
+      <div class="export-group">
+        <button class="btn-export" onclick="exportAll('txt')">TXT</button>
+        <button class="btn-export" onclick="exportAll('bib')">BibTeX</button>
+        <button class="btn-export" onclick="exportAll('ris')">RIS</button>
+        <button class="btn-export" onclick="exportAll('csv')">CSV</button>
+      </div>
     </div>`;
 
     results.forEach((r, i) => {
+      const bodyId = `card-body-${i}`;
       html += `<div class="result-card">
-        <div class="sentence-label">句子 ${i + 1} / Sentence ${i + 1}</div>
-        <div class="sentence-text">${escHtml(r.sentence)}</div>
-        <div class="citations-label">推荐引用 (${fmt}) / Suggested Citations</div>`;
+        <div class="card-toggle" onclick="toggleCard('${bodyId}', this)">
+          <div>
+            <div class="sentence-label">
+              句子 ${i + 1} / Sentence ${i + 1}
+              ${r.reason ? `<span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);margin-left:6px;">— ${escHtml(r.reason)}</span>` : ''}
+            </div>
+            <div class="sentence-text">${escHtml(r.sentence)}</div>
+          </div>
+          <span class="toggle-icon">▲</span>
+        </div>
+        <div class="card-body" id="${bodyId}">
+        <div class="citations-label" style="margin-top:8px;">推荐引用 (${fmt}) / Suggested Citations</div>`;
 
       r.citations.forEach((c, ci) => {
         const idBase = `cit-${i}-${ci}`;
@@ -459,15 +760,29 @@ Paste your paper or paragraph text here. The assistant will automatically detect
 
         if (c.year) html += `<span class="citation-tag">${c.year}</span>`;
         if (c.venue) html += `<span class="citation-tag">${escHtml(c.venue)}</span>`;
+        if (c.citation_count != null) html += `<span class="citation-tag">引用 ${c.citation_count}</span>`;
+        if (c.pdf_url) html += `<span class="citation-tag" style="background:#e6f4ea;color:#1a7f37;">Open Access</span>`;
+        if (c.doi_valid === true)  html += `<span class="citation-tag" style="background:#e6f4ea;color:#1a7f37;">DOI ✓</span>`;
+        if (c.doi_valid === false) html += `<span class="citation-tag" style="background:#fff1f0;color:#cf1322;">DOI ✗</span>`;
 
         html += `</div>`;
 
         if (c.abstract) {
-          html += `<div class="citation-abstract">${escHtml(c.abstract)}${c.abstract.length >= 300 ? '...' : ''}</div>`;
+          const absId = `abs-${i}-${ci}`;
+          const preview = c.abstract.length > 200 ? escHtml(c.abstract.slice(0, 200)) + '…' : escHtml(c.abstract);
+          const full = escHtml(c.abstract);
+          const hasMore = c.abstract.length > 200;
+          html += `<div class="citation-abstract" id="${absId}-preview">${preview}</div>`;
+          if (hasMore) {
+            html += `<div class="citation-abstract" id="${absId}-full" style="display:none;">${full}</div>`;
+            html += `<button class="btn-abstract-toggle" onclick="toggleAbstract('${absId}', this)">展开摘要 ▾</button>`;
+          }
         }
 
-        if (c.url) {
-          html += `<a class="citation-link" href="${escHtml(c.url)}" target="_blank" rel="noopener">${escHtml(c.url)}</a>`;
+        const linkUrl = c.pdf_url || c.url;
+        if (linkUrl) {
+          const label = c.pdf_url ? `PDF: ${escHtml(c.pdf_url)}` : escHtml(c.url);
+          html += `<a class="citation-link" href="${escHtml(linkUrl)}" target="_blank" rel="noopener">${label}</a>`;
         }
 
         html += `</div>
@@ -475,10 +790,30 @@ Paste your paper or paragraph text here. The assistant will automatically detect
         </div>`;
       });
 
-      html += `</div>`;
+      html += `</div></div>`;  // close card-body, result-card
     });
 
     panel.innerHTML = html;
+    // Set initial max-height for animation
+    document.querySelectorAll('.card-body').forEach(el => {
+      el.style.maxHeight = el.scrollHeight + 'px';
+    });
+
+    // Highlight detected sentences in the input text
+    const inputText = document.getElementById('text-input').value;
+    const hlDiv = document.getElementById('text-highlight');
+    if (results.length && inputText) {
+      let highlighted = escHtml(inputText);
+      results.forEach(r => {
+        const escaped = escHtml(r.sentence);
+        // Replace first occurrence only (exact match after HTML escaping)
+        highlighted = highlighted.replace(escaped, `<mark>${escaped}</mark>`);
+      });
+      hlDiv.innerHTML = highlighted;
+      hlDiv.style.display = '';
+    } else {
+      hlDiv.style.display = 'none';
+    }
   }
 
   function copyCitation(id, btn) {
@@ -505,31 +840,105 @@ Paste your paper or paragraph text here. The assistant will automatically detect
     });
   }
 
-  function exportAll() {
+  function exportAll(type = 'txt') {
     if (!lastResults.length) return;
     const fmt = document.getElementById('format-select').value.toUpperCase();
-    let out = `学术引用助手导出 / Research Citation Assistant Export\n`;
-    out += `格式 / Format: ${fmt}\n`;
-    out += `日期 / Date: ${new Date().toLocaleDateString()}\n\n`;
-    out += '='.repeat(60) + '\n\n';
+    let out = '', mimeType = 'text/plain;charset=utf-8', ext = type;
 
-    lastResults.forEach((r, i) => {
-      out += `[句子 ${i + 1}] ${r.sentence}\n\n`;
-      r.citations.forEach((c, ci) => {
-        out += `  [${ci + 1}] ${c.formatted}`;
-        if (c.url) out += `\n       ${c.url}`;
+    if (type === 'txt') {
+      out = `学术引用助手导出 / Research Citation Assistant Export\n`;
+      out += `格式 / Format: ${fmt}\n`;
+      out += `日期 / Date: ${new Date().toLocaleDateString()}\n\n`;
+      out += '='.repeat(60) + '\n\n';
+      lastResults.forEach((r, i) => {
+        out += `[句子 ${i + 1}] ${r.sentence}\n\n`;
+        r.citations.forEach((c, ci) => {
+          out += `  [${ci + 1}] ${c.formatted}`;
+          if (c.pdf_url || c.url) out += `\n       ${c.pdf_url || c.url}`;
+          out += '\n';
+        });
         out += '\n';
       });
-      out += '\n';
-    });
+    } else if (type === 'bib') {
+      const seen = new Set();
+      lastResults.forEach(r => {
+        r.citations.forEach(c => {
+          if (c.bibtex && !seen.has(c.bibtex)) {
+            seen.add(c.bibtex);
+            out += c.bibtex + '\n\n';
+          }
+        });
+      });
+      mimeType = 'text/plain;charset=utf-8';
+    } else if (type === 'ris') {
+      const seen = new Set();
+      lastResults.forEach(r => {
+        r.citations.forEach(c => {
+          if (c.ris && !seen.has(c.ris)) {
+            seen.add(c.ris);
+            out += c.ris + '\n\n';
+          }
+        });
+      });
+    } else if (type === 'csv') {
+      const esc = v => `"${String(v || '').replace(/"/g, '""')}"`;
+      out = 'Sentence,Title,Year,Venue,Citation Count,Formatted,URL\n';
+      lastResults.forEach(r => {
+        r.citations.forEach(c => {
+          out += [r.sentence, c.title, c.year, c.venue, c.citation_count, c.formatted, c.pdf_url || c.url]
+            .map(esc).join(',') + '\n';
+        });
+      });
+      mimeType = 'text/csv;charset=utf-8';
+    }
 
-    const blob = new Blob([out], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob([out], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `citations_${fmt}_${Date.now()}.txt`;
+    a.download = `citations_${fmt}_${Date.now()}.${ext}`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  function toggleAbstract(absId, btn) {
+    const preview = document.getElementById(absId + '-preview');
+    const full = document.getElementById(absId + '-full');
+    if (!preview || !full) return;
+    if (full.style.display === 'none') {
+      preview.style.display = 'none';
+      full.style.display = '';
+      btn.textContent = '收起摘要 ▴';
+    } else {
+      full.style.display = 'none';
+      preview.style.display = '';
+      btn.textContent = '展开摘要 ▾';
+    }
+  }
+
+  function toggleCard(bodyId, toggleEl) {
+    const body = document.getElementById(bodyId);
+    if (!body) return;
+    const icon = toggleEl.querySelector('.toggle-icon');
+    if (body.classList.contains('collapsed')) {
+      body.classList.remove('collapsed');
+      body.style.maxHeight = body.scrollHeight + 'px';
+      if (icon) icon.style.transform = 'rotate(0deg)';
+    } else {
+      body.style.maxHeight = body.scrollHeight + 'px';
+      requestAnimationFrame(() => {
+        body.classList.add('collapsed');
+      });
+      if (icon) icon.style.transform = 'rotate(180deg)';
+    }
+  }
+
+  function updateStats() {
+    const text = document.getElementById('text-input').value;
+    const chars = text.length;
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    document.getElementById('text-stats').textContent = `${words} 词 / ${chars} 字符`;
+    document.getElementById('text-highlight').style.display = 'none';
   }
 
   function escHtml(str) {
@@ -540,6 +949,96 @@ Paste your paper or paragraph text here. The assistant will automatically detect
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
   }
+
+  // ── Dark mode ─────────────────────────────────────────────────────────
+  function applyTheme(dark) {
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
+    document.getElementById('theme-btn').textContent = dark ? '☀️' : '🌙';
+  }
+
+  function toggleTheme() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const next = !isDark;
+    applyTheme(next);
+    localStorage.setItem('theme', next ? 'dark' : '');
+  }
+
+  // Apply saved theme on load
+  applyTheme(localStorage.getItem('theme') === 'dark');
+
+  // ── History (localStorage) ────────────────────────────────────────────
+  const HISTORY_KEY = 'citation_history';
+  const HISTORY_MAX = 5;
+
+  function loadHistory() {
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
+    catch { return []; }
+  }
+
+  function saveHistory(text, results, format) {
+    const history = loadHistory();
+    const entry = {
+      text,
+      results,
+      format,
+      timestamp: Date.now(),
+      preview: text.slice(0, 70).trim(),
+    };
+    // Remove duplicate text entries
+    const filtered = history.filter(h => h.text !== text);
+    filtered.unshift(entry);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(filtered.slice(0, HISTORY_MAX)));
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const history = loadHistory();
+    const section = document.getElementById('history-section');
+    const list = document.getElementById('history-list');
+    const count = document.getElementById('history-count');
+    if (!history.length) { section.style.display = 'none'; return; }
+    section.style.display = '';
+    count.textContent = history.length;
+    list.innerHTML = history.map((h, i) => {
+      const t = new Date(h.timestamp);
+      const time = `${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+      return `<div class="history-item" onclick="restoreHistory(${i})">
+        <span class="history-item-time">${time}</span>
+        <span class="history-item-text">${escHtml(h.preview)}…</span>
+        <span class="history-item-del" onclick="deleteHistory(event,${i})">×</span>
+      </div>`;
+    }).join('');
+  }
+
+  function toggleHistory() {
+    const list = document.getElementById('history-list');
+    const icon = document.getElementById('history-toggle-icon');
+    const open = list.style.display === 'none';
+    list.style.display = open ? '' : 'none';
+    icon.textContent = open ? '▼' : '▶';
+  }
+
+  function restoreHistory(idx) {
+    const history = loadHistory();
+    const h = history[idx];
+    if (!h) return;
+    document.getElementById('text-input').value = h.text;
+    document.getElementById('format-select').value = h.format || 'apa';
+    updateStats();
+    lastResults = h.results;
+    renderResults(h.results, (h.format || 'apa').toUpperCase());
+  }
+
+  function deleteHistory(e, idx) {
+    e.stopPropagation();
+    const history = loadHistory();
+    history.splice(idx, 1);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    renderHistory();
+  }
+
+  // Init history on load
+  renderHistory();
 
   // Allow Ctrl+Enter to submit
   document.addEventListener('keydown', (e) => {
