@@ -2,12 +2,15 @@
 Core citation search logic using Semantic Scholar API.
 """
 
+import os
 import re
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
 
 SEMANTIC_SCHOLAR_API = "https://api.semanticscholar.org/graph/v1/paper/search"
+_API_KEY = os.environ.get('SEMANTIC_SCHOLAR_API_KEY', '')
+_REQUEST_HEADERS = {'x-api-key': _API_KEY} if _API_KEY else {}
 
 # Simple in-process LRU-style cache (max 256 entries)
 _SEARCH_CACHE: dict = {}
@@ -303,7 +306,7 @@ def search_papers(
         params['year'] = f"{year_range[0]}-{year_range[1]}"
 
     try:
-        resp = requests.get(SEMANTIC_SCHOLAR_API, params=params, timeout=10)
+        resp = requests.get(SEMANTIC_SCHOLAR_API, params=params, headers=_REQUEST_HEADERS, timeout=10)
         resp.raise_for_status()
         data = resp.json()
         papers = data.get('data', [])
