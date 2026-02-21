@@ -57,6 +57,10 @@ def find_citations():
     except (ValueError, TypeError):
         min_citation_count = 0
 
+    sort_by = data.get('sort_by', 'citations')
+    if sort_by not in ('citations', 'relevance'):
+        sort_by = 'citations'
+
     results = find_citations_for_text(
         text=text,
         citation_format=citation_format,
@@ -66,6 +70,7 @@ def find_citations():
         open_access_only=open_access_only,
         fields_of_study=fields_of_study,
         min_citation_count=min_citation_count,
+        sort_by=sort_by,
     )
 
     return jsonify({'results': results})

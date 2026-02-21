@@ -424,6 +424,14 @@ Paste your paper or paragraph text here. The assistant will automatically detect
         </div>
 
         <div class="option-group">
+          <label>排序方式 / Sort By</label>
+          <select id="sort-by">
+            <option value="citations">引用次数 / Citation Count</option>
+            <option value="relevance">相关性 / Relevance</option>
+          </select>
+        </div>
+
+        <div class="option-group">
           <label>最低引用量 / Min Citations</label>
           <select id="min-citations">
             <option value="0">不限 / Any</option>
@@ -493,6 +501,7 @@ Paste your paper or paragraph text here. The assistant will automatically detect
       open_access_only: document.getElementById('open-access-only').checked,
       fields_of_study: document.getElementById('field-of-study').value,
       min_citation_count: parseInt(document.getElementById('min-citations').value, 10),
+      sort_by: document.getElementById('sort-by').value,
     };
 
     try {

@@ -339,9 +339,10 @@ def search_papers(
     open_access_only: bool = False,
     fields_of_study: Optional[list[str]] = None,
     min_citation_count: int = 0,
+    sort_by: str = 'citations',
 ) -> list[dict]:
     """Search Semantic Scholar for papers matching query."""
-    cache_key = (query, year_range, tuple(sources or []), limit, open_access_only, tuple(fields_of_study or []), min_citation_count)
+    cache_key = (query, year_range, tuple(sources or []), limit, open_access_only, tuple(fields_of_study or []), min_citation_count, sort_by)
     if cache_key in _SEARCH_CACHE:
         return _SEARCH_CACHE[cache_key]
 
@@ -386,8 +387,9 @@ def search_papers(
                 if any(s in (p.get('venue') or '').lower() for s in src_lower)
             ] or papers  # fall back to all if none match
 
-        # Sort by citation count descending (papers without count ranked last)
-        papers.sort(key=lambda p: p.get('citationCount') or 0, reverse=True)
+        # Sort by citation count descending, or keep API relevance order
+        if sort_by == 'citations':
+            papers.sort(key=lambda p: p.get('citationCount') or 0, reverse=True)
 
         # Apply minimum citation threshold; fall back to all if none qualify
         if min_citation_count > 0:
@@ -413,6 +415,7 @@ def find_citations_for_text(
     open_access_only: bool = False,
     fields_of_study: Optional[list[str]] = None,
     min_citation_count: int = 0,
+    sort_by: str = 'citations',
 ) -> list[dict]:
     """
     Analyze text, detect sentences needing citations, and return
@@ -458,6 +461,7 @@ def find_citations_for_text(
             open_access_only=open_access_only,
             fields_of_study=fields_of_study,
             min_citation_count=min_citation_count,
+            sort_by=sort_by,
         )
         return sentence, query, papers[:results_per_sentence]
 
