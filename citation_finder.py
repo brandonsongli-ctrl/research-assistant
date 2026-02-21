@@ -10,6 +10,7 @@ SEMANTIC_SCHOLAR_API = "https://api.semanticscholar.org/graph/v1/paper/search"
 
 # Patterns that signal a claim needing citation
 CITATION_INDICATORS = [
+    # Existing patterns
     r'\bstudies (show|suggest|indicate|demonstrate|have shown)\b',
     r'\bresearch (shows|suggests|indicates|demonstrates|has shown)\b',
     r'\bevidence (suggests|indicates|shows|demonstrates)\b',
@@ -25,6 +26,32 @@ CITATION_INDICATORS = [
     r'\b\d+\s*%\b',
     r'\bcompared to\b',
     r'\bsignificant(ly)?\b',
+    # Causation
+    r'\b(causes|caused by|leads? to|results? in|due to|attributed to)\b',
+    # Correlation / association
+    r'\b(correlated|associated|linked|related) with\b',
+    r'\b(positive|negative|strong|weak) (correlation|association|relationship)\b',
+    # Comparative quantitative claims
+    r'\b(higher|lower|greater|fewer|more|less) than\b',
+    r'\b\d+\s*(times|fold)\b',
+    # Population / prevalence claims
+    r'\b(most|many|majority of|nearly all|approximately|about)\b.*\b(people|patients|individuals|participants|adults|children|women|men)\b',
+    r'\b(prevalence|incidence|proportion|rate) of\b',
+    # Prior literature
+    r'\b(previous|prior|earlier|recent|past) (studies|research|work|literature|findings)\b',
+    r'\b(meta-analysis|systematic review|randomized|clinical trial|cohort study|longitudinal)\b',
+    # Risk / benefit
+    r'\b(risk|benefit|efficacy|effectiveness|safety) of\b',
+    r'\b(reduces?|increases?) (the )?(risk|likelihood|chance|probability)\b',
+    # Definition / classification claims
+    r'\bis (defined|classified|characterized) as\b',
+    r'\brefers? to\b',
+    # Temporal trends
+    r'\bover the (past|last) (decade|century|years?|decades?)\b',
+    r'\b(growing|increasing|declining|rising) (evidence|trend|number|rate|concern)\b',
+    # Numeric facts
+    r'\b\d{1,3}(,\d{3})+ (people|cases|deaths|patients)\b',
+    r'\bapproximately \d+\b',
 ]
 
 COMPILED_PATTERNS = [re.compile(p, re.IGNORECASE) for p in CITATION_INDICATORS]
@@ -38,8 +65,8 @@ def split_sentences(text: str) -> list[str]:
 
 def needs_citation(sentence: str) -> bool:
     """Return True if the sentence likely needs a citation."""
-    # Skip sentences that already have citations like [1], (Smith, 2020), etc.
-    if re.search(r'\[\d+\]|\(\w+,?\s*\d{4}\)', sentence):
+    # Skip sentences that already have citations like [1], (Smith, 2020), ^1, etc.
+    if re.search(r'\[\d+\]|\(\w[\w\s]*,?\s*\d{4}\)|\^\d+|ibid\.|op\.\s*cit\.', sentence, re.IGNORECASE):
         return False
     for pattern in COMPILED_PATTERNS:
         if pattern.search(sentence):
