@@ -555,7 +555,7 @@ def find_citations_for_text(
                 'url': url,
                 'pdf_url': pdf_url,
                 'citation_count': paper.get('citationCount'),
-                'abstract': (paper.get('abstract') or '')[:300],
+                'abstract': paper.get('abstract') or '',
             })
         return citations
 

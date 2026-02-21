@@ -293,6 +293,17 @@
     .btn-copy:hover { border-color: var(--primary); color: var(--primary); }
     .btn-copy.copied { border-color: var(--success); color: var(--success); }
 
+    .btn-abstract-toggle {
+      background: none;
+      border: none;
+      font-size: 11px;
+      color: var(--primary);
+      cursor: pointer;
+      padding: 2px 0;
+      font-family: inherit;
+    }
+    .btn-abstract-toggle:hover { text-decoration: underline; }
+
     .empty-state {
       text-align: center;
       padding: 60px 20px;
@@ -577,7 +588,15 @@ Paste your paper or paragraph text here. The assistant will automatically detect
         html += `</div>`;
 
         if (c.abstract) {
-          html += `<div class="citation-abstract">${escHtml(c.abstract)}${c.abstract.length >= 300 ? '...' : ''}</div>`;
+          const absId = `abs-${i}-${ci}`;
+          const preview = c.abstract.length > 200 ? escHtml(c.abstract.slice(0, 200)) + '…' : escHtml(c.abstract);
+          const full = escHtml(c.abstract);
+          const hasMore = c.abstract.length > 200;
+          html += `<div class="citation-abstract" id="${absId}-preview">${preview}</div>`;
+          if (hasMore) {
+            html += `<div class="citation-abstract" id="${absId}-full" style="display:none;">${full}</div>`;
+            html += `<button class="btn-abstract-toggle" onclick="toggleAbstract('${absId}', this)">展开摘要 ▾</button>`;
+          }
         }
 
         const linkUrl = c.pdf_url || c.url;
@@ -684,6 +703,21 @@ Paste your paper or paragraph text here. The assistant will automatically detect
     a.download = `citations_${fmt}_${Date.now()}.${ext}`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  function toggleAbstract(absId, btn) {
+    const preview = document.getElementById(absId + '-preview');
+    const full = document.getElementById(absId + '-full');
+    if (!preview || !full) return;
+    if (full.style.display === 'none') {
+      preview.style.display = 'none';
+      full.style.display = '';
+      btn.textContent = '收起摘要 ▴';
+    } else {
+      full.style.display = 'none';
+      preview.style.display = '';
+      btn.textContent = '展开摘要 ▾';
+    }
   }
 
   function toggleCard(bodyId, toggleEl) {
