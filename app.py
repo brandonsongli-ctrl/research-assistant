@@ -52,6 +52,11 @@ def find_citations():
     fields_raw = data.get('fields_of_study', '')
     fields_of_study = [f.strip() for f in fields_raw.split(',') if f.strip()] if fields_raw else None
 
+    try:
+        min_citation_count = max(0, int(data.get('min_citation_count', 0)))
+    except (ValueError, TypeError):
+        min_citation_count = 0
+
     results = find_citations_for_text(
         text=text,
         citation_format=citation_format,
@@ -60,6 +65,7 @@ def find_citations():
         results_per_sentence=results_per_sentence,
         open_access_only=open_access_only,
         fields_of_study=fields_of_study,
+        min_citation_count=min_citation_count,
     )
 
     return jsonify({'results': results})

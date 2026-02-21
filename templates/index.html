@@ -423,6 +423,18 @@ Paste your paper or paragraph text here. The assistant will automatically detect
           </select>
         </div>
 
+        <div class="option-group">
+          <label>最低引用量 / Min Citations</label>
+          <select id="min-citations">
+            <option value="0">不限 / Any</option>
+            <option value="10">≥ 10</option>
+            <option value="50">≥ 50</option>
+            <option value="100">≥ 100</option>
+            <option value="500">≥ 500</option>
+            <option value="1000">≥ 1000</option>
+          </select>
+        </div>
+
         <div class="option-group" style="grid-column: 1 / -1;">
           <label>年份范围 / Year Range</label>
           <div class="year-row">
@@ -480,6 +492,7 @@ Paste your paper or paragraph text here. The assistant will automatically detect
       results_per_sentence: parseInt(document.getElementById('results-per-sentence').value, 10),
       open_access_only: document.getElementById('open-access-only').checked,
       fields_of_study: document.getElementById('field-of-study').value,
+      min_citation_count: parseInt(document.getElementById('min-citations').value, 10),
     };
 
     try {
