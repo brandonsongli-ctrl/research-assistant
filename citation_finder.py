@@ -292,9 +292,10 @@ def search_papers(
     sources: Optional[list[str]] = None,
     limit: int = 5,
     open_access_only: bool = False,
+    fields_of_study: Optional[list[str]] = None,
 ) -> list[dict]:
     """Search Semantic Scholar for papers matching query."""
-    cache_key = (query, year_range, tuple(sources or []), limit, open_access_only)
+    cache_key = (query, year_range, tuple(sources or []), limit, open_access_only, tuple(fields_of_study or []))
     if cache_key in _SEARCH_CACHE:
         return _SEARCH_CACHE[cache_key]
 
@@ -305,6 +306,8 @@ def search_papers(
     }
     if year_range:
         params['year'] = f"{year_range[0]}-{year_range[1]}"
+    if fields_of_study:
+        params['fieldsOfStudy'] = ','.join(fields_of_study)
 
     last_exc = None
     for attempt in range(3):
@@ -356,6 +359,7 @@ def find_citations_for_text(
     sources: Optional[list[str]] = None,
     results_per_sentence: int = 3,
     open_access_only: bool = False,
+    fields_of_study: Optional[list[str]] = None,
 ) -> list[dict]:
     """
     Analyze text, detect sentences needing citations, and return
@@ -399,6 +403,7 @@ def find_citations_for_text(
             sources=sources,
             limit=fetch_limit,
             open_access_only=open_access_only,
+            fields_of_study=fields_of_study,
         )
         return sentence, query, papers[:results_per_sentence]
 

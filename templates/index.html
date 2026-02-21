@@ -393,6 +393,25 @@ Paste your paper or paragraph text here. The assistant will automatically detect
         </div>
 
         <div class="option-group">
+          <label>学科领域 / Field of Study</label>
+          <select id="field-of-study">
+            <option value="">全部 / All</option>
+            <option value="Computer Science">Computer Science</option>
+            <option value="Medicine">Medicine</option>
+            <option value="Biology">Biology</option>
+            <option value="Physics">Physics</option>
+            <option value="Mathematics">Mathematics</option>
+            <option value="Chemistry">Chemistry</option>
+            <option value="Psychology">Psychology</option>
+            <option value="Engineering">Engineering</option>
+            <option value="Economics">Economics</option>
+            <option value="Sociology">Sociology</option>
+            <option value="Environmental Science">Environmental Science</option>
+            <option value="Neuroscience">Neuroscience</option>
+          </select>
+        </div>
+
+        <div class="option-group">
           <label>每句结果数 / Results per Sentence</label>
           <select id="results-per-sentence">
             <option value="1">1</option>
@@ -460,6 +479,7 @@ Paste your paper or paragraph text here. The assistant will automatically detect
       year_end: document.getElementById('year-end').value || null,
       results_per_sentence: parseInt(document.getElementById('results-per-sentence').value, 10),
       open_access_only: document.getElementById('open-access-only').checked,
+      fields_of_study: document.getElementById('field-of-study').value,
     };
 
     try {

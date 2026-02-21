@@ -49,6 +49,9 @@ def find_citations():
 
     open_access_only = bool(data.get('open_access_only', False))
 
+    fields_raw = data.get('fields_of_study', '')
+    fields_of_study = [f.strip() for f in fields_raw.split(',') if f.strip()] if fields_raw else None
+
     results = find_citations_for_text(
         text=text,
         citation_format=citation_format,
@@ -56,6 +59,7 @@ def find_citations():
         sources=sources or None,
         results_per_sentence=results_per_sentence,
         open_access_only=open_access_only,
+        fields_of_study=fields_of_study,
     )
 
     return jsonify({'results': results})
