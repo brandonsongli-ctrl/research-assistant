@@ -83,23 +83,52 @@ def needs_citation(sentence: str) -> bool:
     return False
 
 
+_STOP_WORDS = {
+    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+    'of', 'with', 'by', 'from', 'as', 'is', 'are', 'was', 'were', 'be',
+    'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
+    'would', 'could', 'should', 'may', 'might', 'can', 'it', 'its',
+    'this', 'that', 'these', 'those', 'not', 'also', 'which', 'who',
+    'studies', 'research', 'show', 'shows', 'shown', 'suggest', 'suggests',
+    'evidence', 'data', 'indicates', 'indicate', 'demonstrate', 'demonstrates',
+    'according', 'generally', 'commonly', 'widely', 'significant', 'significantly',
+    'however', 'therefore', 'furthermore', 'moreover', 'although', 'because',
+    'such', 'their', 'they', 'them', 'there', 'been', 'both', 'each',
+    'than', 'then', 'when', 'where', 'while', 'thus', 'since', 'after',
+}
+
+
 def build_query(sentence: str) -> str:
-    """Extract key terms from sentence for search query."""
-    # Remove common stop words and short words
-    stop_words = {
-        'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-        'of', 'with', 'by', 'from', 'as', 'is', 'are', 'was', 'were', 'be',
-        'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
-        'would', 'could', 'should', 'may', 'might', 'can', 'it', 'its',
-        'this', 'that', 'these', 'those', 'not', 'also', 'which', 'who',
-        'studies', 'research', 'show', 'shows', 'shown', 'suggest', 'suggests',
-        'evidence', 'data', 'indicates', 'indicate', 'demonstrate', 'demonstrates',
-        'according', 'generally', 'commonly', 'widely', 'significant', 'significantly',
-    }
-    words = re.findall(r'\b[a-zA-Z]{3,}\b', sentence)
-    keywords = [w for w in words if w.lower() not in stop_words]
-    # Take the most meaningful 6 words
-    return ' '.join(keywords[:6])
+    """Extract key terms from sentence for search query.
+
+    Strategy:
+    1. Extract capitalized multi-word noun phrases (prioritised as domain concepts).
+    2. Fall back to individual content words sorted by length (longer = more specific).
+    3. Deduplicate, limit to 8 tokens.
+    """
+    seen: set[str] = set()
+    tokens: list[str] = []
+
+    # Step 1: capitalized bigrams/trigrams (e.g. "Machine Learning", "Climate Change")
+    cap_phrases = re.findall(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b', sentence)
+    for phrase in cap_phrases:
+        key = phrase.lower()
+        if key not in seen and not all(w in _STOP_WORDS for w in key.split()):
+            seen.add(key)
+            tokens.append(phrase)
+
+    # Step 2: individual content words, longest first (more specific terms first)
+    words = re.findall(r'\b[a-zA-Z]{4,}\b', sentence)
+    content = [w for w in words if w.lower() not in _STOP_WORDS and w.lower() not in seen]
+    # Deduplicate preserving order, sort longer words first within tie-breaks
+    ordered: list[str] = []
+    for w in sorted(set(w.lower() for w in content), key=lambda x: -len(x)):
+        if w not in seen:
+            seen.add(w)
+            ordered.append(w)
+    tokens.extend(ordered)
+
+    return ' '.join(tokens[:8])
 
 
 def _get_author_parts(authors: list, style: str) -> str:
