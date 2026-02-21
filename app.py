@@ -23,7 +23,7 @@ def find_citations():
         return jsonify({'error': 'No text provided.'}), 400
 
     citation_format = data.get('format', 'apa').lower()
-    if citation_format not in ('apa', 'mla'):
+    if citation_format not in ('apa', 'mla', 'chicago', 'ieee', 'harvard', 'vancouver', 'bibtex'):
         citation_format = 'apa'
 
     # Year range

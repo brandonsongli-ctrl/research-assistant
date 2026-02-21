@@ -66,78 +66,188 @@ def build_query(sentence: str) -> str:
     return ' '.join(keywords[:6])
 
 
+def _get_author_parts(authors: list, style: str) -> str:
+    """Helper: format author list for different styles."""
+    if not authors:
+        return 'Unknown Author'
+
+    def name_parts(a):
+        name = a.get('name', '')
+        parts = name.split()
+        return parts, name
+
+    if style == 'apa':
+        def fmt_one(a):
+            parts, name = name_parts(a)
+            if not parts:
+                return name
+            last = parts[-1]
+            initials = ' '.join(p[0] + '.' for p in parts[:-1] if p)
+            return f"{last}, {initials}".strip(', ')
+        authors_f = [fmt_one(a) for a in authors]
+        if len(authors_f) == 1:
+            return authors_f[0]
+        elif len(authors_f) <= 6:
+            return ', '.join(authors_f[:-1]) + ', & ' + authors_f[-1]
+        else:
+            return authors_f[0] + ', et al.'
+
+    elif style == 'mla':
+        parts, name = name_parts(authors[0])
+        first = f"{parts[-1]}, {' '.join(parts[:-1])}" if len(parts) >= 2 else name
+        return first if len(authors) == 1 else first + ', et al.'
+
+    elif style == 'chicago':
+        def fmt_one(a, i):
+            parts, name = name_parts(a)
+            if not parts:
+                return name
+            if i == 0:
+                return f"{parts[-1]}, {' '.join(parts[:-1])}"
+            return ' '.join(parts)
+        if len(authors) == 1:
+            return fmt_one(authors[0], 0)
+        elif len(authors) <= 3:
+            fmts = [fmt_one(a, i) for i, a in enumerate(authors)]
+            return ', and '.join([', '.join(fmts[:-1]), fmts[-1]])
+        else:
+            return fmt_one(authors[0], 0) + ', et al.'
+
+    elif style == 'ieee':
+        def fmt_one(a):
+            parts, name = name_parts(a)
+            if not parts:
+                return name
+            initials = '. '.join(p[0] for p in parts[:-1] if p) + '.' if parts[:-1] else ''
+            return f"{initials} {parts[-1]}".strip()
+        fmts = [fmt_one(a) for a in authors[:3]]
+        result = ', '.join(fmts)
+        return result + (' et al.' if len(authors) > 3 else '')
+
+    elif style == 'harvard':
+        def fmt_one(a):
+            parts, name = name_parts(a)
+            if not parts:
+                return name
+            initials = ''.join(p[0] + '.' for p in parts[:-1] if p)
+            return f"{parts[-1]}, {initials}".strip(', ')
+        fmts = [fmt_one(a) for a in authors]
+        if len(fmts) == 1:
+            return fmts[0]
+        elif len(fmts) <= 3:
+            return ', '.join(fmts)
+        else:
+            return fmts[0] + ' et al.'
+
+    elif style == 'vancouver':
+        def fmt_one(a):
+            parts, name = name_parts(a)
+            if not parts:
+                return name
+            initials = ''.join(p[0] for p in parts[:-1] if p)
+            return f"{parts[-1]} {initials}".strip()
+        fmts = [fmt_one(a) for a in authors[:6]]
+        result = ', '.join(fmts)
+        return result + (', et al.' if len(authors) > 6 else '')
+
+    return 'Unknown Author'
+
+
 def format_apa(paper: dict) -> str:
-    """Format a Semantic Scholar paper result as APA citation."""
+    """Format as APA citation."""
     authors = paper.get('authors', [])
     year = paper.get('year', 'n.d.')
     title = paper.get('title', 'Untitled')
     venue = paper.get('venue', '')
-
-    if not authors:
-        author_str = 'Unknown Author'
-    elif len(authors) == 1:
-        name = authors[0].get('name', '')
-        parts = name.split()
-        if parts:
-            last = parts[-1]
-            initials = ' '.join(p[0] + '.' for p in parts[:-1] if p)
-            author_str = f"{last}, {initials}".strip(', ')
-        else:
-            author_str = name
-    elif len(authors) <= 6:
-        formatted = []
-        for a in authors:
-            name = a.get('name', '')
-            parts = name.split()
-            if parts:
-                last = parts[-1]
-                initials = ' '.join(p[0] + '.' for p in parts[:-1] if p)
-                formatted.append(f"{last}, {initials}".strip(', '))
-            else:
-                formatted.append(name)
-        author_str = ', '.join(formatted[:-1]) + ', & ' + formatted[-1] if len(formatted) > 1 else formatted[0]
-    else:
-        name = authors[0].get('name', '')
-        parts = name.split()
-        if parts:
-            last = parts[-1]
-            initials = ' '.join(p[0] + '.' for p in parts[:-1] if p)
-            first_author = f"{last}, {initials}".strip(', ')
-        else:
-            first_author = name
-        author_str = f"{first_author}, et al."
-
+    author_str = _get_author_parts(authors, 'apa')
     venue_str = f" *{venue}*." if venue else '.'
     return f"{author_str} ({year}). {title}{venue_str}"
 
 
 def format_mla(paper: dict) -> str:
-    """Format a Semantic Scholar paper result as MLA citation."""
+    """Format as MLA citation."""
     authors = paper.get('authors', [])
     year = paper.get('year', 'n.d.')
     title = paper.get('title', 'Untitled')
     venue = paper.get('venue', '')
-
-    if not authors:
-        author_str = 'Unknown Author'
-    elif len(authors) == 1:
-        name = authors[0].get('name', '')
-        parts = name.split()
-        if len(parts) >= 2:
-            author_str = f"{parts[-1]}, {' '.join(parts[:-1])}"
-        else:
-            author_str = name
-    else:
-        name = authors[0].get('name', '')
-        parts = name.split()
-        if len(parts) >= 2:
-            first = f"{parts[-1]}, {' '.join(parts[:-1])}"
-        else:
-            first = name
-        author_str = first + ', et al.'
-
+    author_str = _get_author_parts(authors, 'mla')
     venue_str = f" *{venue}*," if venue else ','
-    return f"{author_str}. \"{title}.\"{ venue_str} {year}."
+    return f'{author_str}. "{title}."{venue_str} {year}.'
+
+
+def format_chicago(paper: dict) -> str:
+    """Format as Chicago author-date citation."""
+    authors = paper.get('authors', [])
+    year = paper.get('year', 'n.d.')
+    title = paper.get('title', 'Untitled')
+    venue = paper.get('venue', '')
+    author_str = _get_author_parts(authors, 'chicago')
+    venue_str = f" *{venue}*." if venue else '.'
+    return f'{author_str}. "{title}."{venue_str} {year}.'
+
+
+def format_ieee(paper: dict) -> str:
+    """Format as IEEE citation."""
+    authors = paper.get('authors', [])
+    year = paper.get('year', 'n.d.')
+    title = paper.get('title', 'Untitled')
+    venue = paper.get('venue', '')
+    author_str = _get_author_parts(authors, 'ieee')
+    venue_str = f", *{venue}*" if venue else ''
+    return f'{author_str}, "{title}"{venue_str}, {year}.'
+
+
+def format_harvard(paper: dict) -> str:
+    """Format as Harvard citation."""
+    authors = paper.get('authors', [])
+    year = paper.get('year', 'n.d.')
+    title = paper.get('title', 'Untitled')
+    venue = paper.get('venue', '')
+    author_str = _get_author_parts(authors, 'harvard')
+    venue_str = f", *{venue}*" if venue else ''
+    return f"{author_str} ({year}) '{title}'{venue_str}."
+
+
+def format_vancouver(paper: dict) -> str:
+    """Format as Vancouver citation."""
+    authors = paper.get('authors', [])
+    year = paper.get('year', 'n.d.')
+    title = paper.get('title', 'Untitled')
+    venue = paper.get('venue', '')
+    author_str = _get_author_parts(authors, 'vancouver')
+    venue_str = f". {venue}" if venue else ''
+    return f"{author_str}. {title}{venue_str}. {year}."
+
+
+def format_bibtex(paper: dict) -> str:
+    """Format as BibTeX entry."""
+    authors = paper.get('authors', [])
+    year = paper.get('year', 'n.d.')
+    title = paper.get('title', 'Untitled')
+    venue = paper.get('venue', '')
+    ext_ids = paper.get('externalIds') or {}
+    doi = ext_ids.get('DOI', '')
+
+    if authors:
+        parts = authors[0].get('name', '').split()
+        key_author = parts[-1].lower() if parts else 'unknown'
+    else:
+        key_author = 'unknown'
+    key = f"{key_author}{year}"
+
+    author_names = ' and '.join(a.get('name', '') for a in authors) or 'Unknown Author'
+    lines = [
+        f"@article{{{key},",
+        f"  author  = {{{author_names}}},",
+        f"  title   = {{{title}}},",
+        f"  year    = {{{year}}},",
+    ]
+    if venue:
+        lines.append(f"  journal = {{{venue}}},")
+    if doi:
+        lines.append(f"  doi     = {{{doi}}},")
+    lines.append("}")
+    return '\n'.join(lines)
 
 
 def search_papers(
@@ -205,11 +315,17 @@ def find_citations_for_text(
 
         papers = search_papers(query, year_range=year_range, sources=sources, limit=results_per_sentence)
         citations = []
+        FORMAT_MAP = {
+            'mla': format_mla,
+            'chicago': format_chicago,
+            'ieee': format_ieee,
+            'harvard': format_harvard,
+            'vancouver': format_vancouver,
+            'bibtex': format_bibtex,
+        }
+        fmt_fn = FORMAT_MAP.get(citation_format, format_apa)
         for paper in papers:
-            if citation_format == 'mla':
-                formatted = format_mla(paper)
-            else:
-                formatted = format_apa(paper)
+            formatted = fmt_fn(paper)
 
             url = paper.get('url', '')
             ext_ids = paper.get('externalIds') or {}
