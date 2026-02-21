@@ -293,6 +293,12 @@
     .btn-copy:hover { border-color: var(--primary); color: var(--primary); }
     .btn-copy.copied { border-color: var(--success); color: var(--success); }
 
+    #text-highlight mark {
+      background: #fff3cd;
+      border-radius: 3px;
+      padding: 0 2px;
+    }
+
     .btn-abstract-toggle {
       background: none;
       border: none;
@@ -380,6 +386,7 @@ Paste your paper or paragraph text here. The assistant will automatically detect
         oninput="updateStats()"
       ></textarea>
       <div class="text-stats" id="text-stats">0 词 / 0 字符</div>
+      <div id="text-highlight" style="display:none;margin-top:8px;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:13px;line-height:1.7;background:var(--surface);white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto;"></div>
     </div>
 
     <div>
@@ -618,6 +625,22 @@ Paste your paper or paragraph text here. The assistant will automatically detect
     document.querySelectorAll('.card-body').forEach(el => {
       el.style.maxHeight = el.scrollHeight + 'px';
     });
+
+    // Highlight detected sentences in the input text
+    const inputText = document.getElementById('text-input').value;
+    const hlDiv = document.getElementById('text-highlight');
+    if (results.length && inputText) {
+      let highlighted = escHtml(inputText);
+      results.forEach(r => {
+        const escaped = escHtml(r.sentence);
+        // Replace first occurrence only (exact match after HTML escaping)
+        highlighted = highlighted.replace(escaped, `<mark>${escaped}</mark>`);
+      });
+      hlDiv.innerHTML = highlighted;
+      hlDiv.style.display = '';
+    } else {
+      hlDiv.style.display = 'none';
+    }
   }
 
   function copyCitation(id, btn) {
@@ -742,6 +765,7 @@ Paste your paper or paragraph text here. The assistant will automatically detect
     const chars = text.length;
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
     document.getElementById('text-stats').textContent = `${words} 词 / ${chars} 字符`;
+    document.getElementById('text-highlight').style.display = 'none';
   }
 
   function escHtml(str) {
