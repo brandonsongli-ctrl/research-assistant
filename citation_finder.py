@@ -4,6 +4,7 @@ Core citation search logic using Semantic Scholar API.
 
 import os
 import re
+import time
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
@@ -305,9 +306,22 @@ def search_papers(
     if year_range:
         params['year'] = f"{year_range[0]}-{year_range[1]}"
 
+    last_exc = None
+    for attempt in range(3):
+        try:
+            resp = requests.get(SEMANTIC_SCHOLAR_API, params=params, headers=_REQUEST_HEADERS, timeout=10)
+            if resp.status_code in (429, 500, 502, 503, 504):
+                time.sleep(2 ** attempt)
+                continue
+            resp.raise_for_status()
+            break
+        except requests.RequestException as exc:
+            last_exc = exc
+            time.sleep(2 ** attempt)
+    else:
+        return []
+
     try:
-        resp = requests.get(SEMANTIC_SCHOLAR_API, params=params, headers=_REQUEST_HEADERS, timeout=10)
-        resp.raise_for_status()
         data = resp.json()
         papers = data.get('data', [])
 
@@ -331,7 +345,7 @@ def search_papers(
             _SEARCH_CACHE.pop(next(iter(_SEARCH_CACHE)))
         _SEARCH_CACHE[cache_key] = papers
         return papers
-    except requests.RequestException:
+    except Exception:
         return []
 
 
