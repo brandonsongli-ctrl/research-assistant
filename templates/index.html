@@ -383,6 +383,11 @@ Paste your paper or paragraph text here. The assistant will automatically detect
       </div>
     </div>
 
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+      <input type="checkbox" id="open-access-only" style="width:auto;" />
+      仅开放获取 / Open Access Only
+    </label>
+
     <button class="btn-primary" id="find-btn" onclick="findCitations()">
       查找引用 / Find Citations
     </button>
@@ -422,6 +427,7 @@ Paste your paper or paragraph text here. The assistant will automatically detect
       year_start: document.getElementById('year-start').value || null,
       year_end: document.getElementById('year-end').value || null,
       results_per_sentence: parseInt(document.getElementById('results-per-sentence').value, 10),
+      open_access_only: document.getElementById('open-access-only').checked,
     };
 
     try {
@@ -477,6 +483,8 @@ Paste your paper or paragraph text here. The assistant will automatically detect
 
         if (c.year) html += `<span class="citation-tag">${c.year}</span>`;
         if (c.venue) html += `<span class="citation-tag">${escHtml(c.venue)}</span>`;
+        if (c.citation_count != null) html += `<span class="citation-tag">引用 ${c.citation_count}</span>`;
+        if (c.pdf_url) html += `<span class="citation-tag" style="background:#e6f4ea;color:#1a7f37;">Open Access</span>`;
 
         html += `</div>`;
 
@@ -484,8 +492,10 @@ Paste your paper or paragraph text here. The assistant will automatically detect
           html += `<div class="citation-abstract">${escHtml(c.abstract)}${c.abstract.length >= 300 ? '...' : ''}</div>`;
         }
 
-        if (c.url) {
-          html += `<a class="citation-link" href="${escHtml(c.url)}" target="_blank" rel="noopener">${escHtml(c.url)}</a>`;
+        const linkUrl = c.pdf_url || c.url;
+        if (linkUrl) {
+          const label = c.pdf_url ? `PDF: ${escHtml(c.pdf_url)}` : escHtml(c.url);
+          html += `<a class="citation-link" href="${escHtml(linkUrl)}" target="_blank" rel="noopener">${label}</a>`;
         }
 
         html += `</div>

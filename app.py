@@ -47,12 +47,15 @@ def find_citations():
     except (ValueError, TypeError):
         results_per_sentence = 3
 
+    open_access_only = bool(data.get('open_access_only', False))
+
     results = find_citations_for_text(
         text=text,
         citation_format=citation_format,
         year_range=year_range,
         sources=sources or None,
         results_per_sentence=results_per_sentence,
+        open_access_only=open_access_only,
     )
 
     return jsonify({'results': results})

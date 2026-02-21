@@ -255,12 +255,13 @@ def search_papers(
     year_range: Optional[tuple[int, int]] = None,
     sources: Optional[list[str]] = None,
     limit: int = 5,
+    open_access_only: bool = False,
 ) -> list[dict]:
     """Search Semantic Scholar for papers matching query."""
     params = {
         'query': query,
         'limit': limit,
-        'fields': 'title,authors,year,venue,externalIds,abstract,url',
+        'fields': 'title,authors,year,venue,externalIds,abstract,url,openAccessPdf,citationCount',
     }
     if year_range:
         params['year'] = f"{year_range[0]}-{year_range[1]}"
@@ -270,6 +271,10 @@ def search_papers(
         resp.raise_for_status()
         data = resp.json()
         papers = data.get('data', [])
+
+        # Filter open access
+        if open_access_only:
+            papers = [p for p in papers if p.get('openAccessPdf')]
 
         # Filter by source/venue if specified
         if sources:
@@ -290,6 +295,7 @@ def find_citations_for_text(
     year_range: Optional[tuple[int, int]] = None,
     sources: Optional[list[str]] = None,
     results_per_sentence: int = 3,
+    open_access_only: bool = False,
 ) -> list[dict]:
     """
     Analyze text, detect sentences needing citations, and return
@@ -313,7 +319,14 @@ def find_citations_for_text(
         if not query:
             continue
 
-        papers = search_papers(query, year_range=year_range, sources=sources, limit=results_per_sentence)
+        papers = search_papers(
+            query,
+            year_range=year_range,
+            sources=sources,
+            limit=results_per_sentence * 3 if open_access_only else results_per_sentence,
+            open_access_only=open_access_only,
+        )
+        papers = papers[:results_per_sentence]
         citations = []
         FORMAT_MAP = {
             'mla': format_mla,
@@ -333,12 +346,17 @@ def find_citations_for_text(
             if doi and not url:
                 url = f"https://doi.org/{doi}"
 
+            oa_pdf = paper.get('openAccessPdf') or {}
+            pdf_url = oa_pdf.get('url', '')
+
             citations.append({
                 'formatted': formatted,
                 'title': paper.get('title', ''),
                 'year': paper.get('year'),
                 'venue': paper.get('venue', ''),
                 'url': url,
+                'pdf_url': pdf_url,
+                'citation_count': paper.get('citationCount'),
                 'abstract': (paper.get('abstract') or '')[:300],
             })
 
