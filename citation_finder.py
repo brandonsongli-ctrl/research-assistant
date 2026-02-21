@@ -4,6 +4,7 @@ Core citation search logic using Semantic Scholar API.
 
 import re
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
 
 SEMANTIC_SCHOLAR_API = "https://api.semanticscholar.org/graph/v1/paper/search"
@@ -350,47 +351,62 @@ def find_citations_for_text(
         'citations': [{'formatted': str, 'title': str, 'year': int, 'url': str, 'abstract': str}]
       }
     """
-    sentences = split_sentences(text)
-    results = []
+    FORMAT_MAP = {
+        'mla': format_mla,
+        'chicago': format_chicago,
+        'ieee': format_ieee,
+        'harvard': format_harvard,
+        'vancouver': format_vancouver,
+        'bibtex': format_bibtex,
+    }
+    fmt_fn = FORMAT_MAP.get(citation_format, format_apa)
+    fetch_limit = results_per_sentence * 3 if open_access_only else results_per_sentence
 
-    for sentence in sentences:
+    # Collect candidate (sentence, query) pairs preserving order
+    candidates = []
+    for sentence in split_sentences(text):
         if not needs_citation(sentence):
             continue
-
         query = build_query(sentence)
-        if not query:
-            continue
+        if query:
+            candidates.append((sentence, query))
 
+    if not candidates:
+        return []
+
+    def _fetch(sentence_query):
+        sentence, query = sentence_query
         papers = search_papers(
             query,
             year_range=year_range,
             sources=sources,
-            limit=results_per_sentence * 3 if open_access_only else results_per_sentence,
+            limit=fetch_limit,
             open_access_only=open_access_only,
         )
-        papers = papers[:results_per_sentence]
+        return sentence, query, papers[:results_per_sentence]
+
+    # Fire all queries in parallel (up to 8 workers)
+    ordered: dict[int, tuple] = {}
+    with ThreadPoolExecutor(max_workers=min(8, len(candidates))) as pool:
+        future_to_idx = {pool.submit(_fetch, c): i for i, c in enumerate(candidates)}
+        for future in as_completed(future_to_idx):
+            idx = future_to_idx[future]
+            try:
+                ordered[idx] = future.result()
+            except Exception:
+                pass
+
+    def _build_citations(papers):
         citations = []
-        FORMAT_MAP = {
-            'mla': format_mla,
-            'chicago': format_chicago,
-            'ieee': format_ieee,
-            'harvard': format_harvard,
-            'vancouver': format_vancouver,
-            'bibtex': format_bibtex,
-        }
-        fmt_fn = FORMAT_MAP.get(citation_format, format_apa)
         for paper in papers:
             formatted = fmt_fn(paper)
-
             url = paper.get('url', '')
             ext_ids = paper.get('externalIds') or {}
             doi = ext_ids.get('DOI', '')
             if doi and not url:
                 url = f"https://doi.org/{doi}"
-
             oa_pdf = paper.get('openAccessPdf') or {}
             pdf_url = oa_pdf.get('url', '')
-
             citations.append({
                 'formatted': formatted,
                 'bibtex': format_bibtex(paper),
@@ -402,12 +418,13 @@ def find_citations_for_text(
                 'citation_count': paper.get('citationCount'),
                 'abstract': (paper.get('abstract') or '')[:300],
             })
+        return citations
 
+    results = []
+    for idx in sorted(ordered):
+        sentence, query, papers = ordered[idx]
+        citations = _build_citations(papers)
         if citations:
-            results.append({
-                'sentence': sentence,
-                'query': query,
-                'citations': citations,
-            })
+            results.append({'sentence': sentence, 'query': query, 'citations': citations})
 
     return results
