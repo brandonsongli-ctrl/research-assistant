@@ -571,6 +571,8 @@ Paste your paper or paragraph text here. The assistant will automatically detect
         if (c.venue) html += `<span class="citation-tag">${escHtml(c.venue)}</span>`;
         if (c.citation_count != null) html += `<span class="citation-tag">引用 ${c.citation_count}</span>`;
         if (c.pdf_url) html += `<span class="citation-tag" style="background:#e6f4ea;color:#1a7f37;">Open Access</span>`;
+        if (c.doi_valid === true)  html += `<span class="citation-tag" style="background:#e6f4ea;color:#1a7f37;">DOI ✓</span>`;
+        if (c.doi_valid === false) html += `<span class="citation-tag" style="background:#fff1f0;color:#cf1322;">DOI ✗</span>`;
 
         html += `</div>`;
 

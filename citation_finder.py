@@ -67,6 +67,25 @@ COMPILED_PATTERNS = [re.compile(p, re.IGNORECASE) for p in CITATION_INDICATORS]
 
 
 # Common title/academic abbreviations that should not trigger sentence splits
+_DOI_CACHE: dict[str, bool] = {}
+
+
+def validate_doi(doi: str) -> bool:
+    """Return True if the DOI resolves (HEAD request to doi.org)."""
+    if not doi:
+        return False
+    if doi in _DOI_CACHE:
+        return _DOI_CACHE[doi]
+    try:
+        r = requests.head(f"https://doi.org/{doi}", timeout=4, allow_redirects=True)
+        result = r.status_code < 400
+    except Exception:
+        result = False
+    if len(_DOI_CACHE) < 1024:
+        _DOI_CACHE[doi] = result
+    return result
+
+
 _ABBREV = re.compile(
     r'\b(Dr|Mr|Mrs|Ms|Prof|Sr|Jr|vs|etc|al|Fig|et|cf|vol|no|pp|ed|eds|rev|dept|univ|govt|corp|inc|ltd|approx|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.',
     re.IGNORECASE,
@@ -483,7 +502,7 @@ def find_citations_for_text(
     if not candidates:
         return []
 
-    def _fetch(sentence_query):
+    def _fetch_and_build(sentence_query):
         sentence, query = sentence_query
         papers = search_papers(
             query,
@@ -500,7 +519,7 @@ def find_citations_for_text(
     # Fire all queries in parallel (up to 8 workers)
     ordered: dict[int, tuple] = {}
     with ThreadPoolExecutor(max_workers=min(8, len(candidates))) as pool:
-        future_to_idx = {pool.submit(_fetch, c): i for i, c in enumerate(candidates)}
+        future_to_idx = {pool.submit(_fetch_and_build, c): i for i, c in enumerate(candidates)}
         for future in as_completed(future_to_idx):
             idx = future_to_idx[future]
             try:
@@ -512,11 +531,16 @@ def find_citations_for_text(
         citations = []
         for paper in papers:
             formatted = fmt_fn(paper)
-            url = paper.get('url', '')
             ext_ids = paper.get('externalIds') or {}
             doi = ext_ids.get('DOI', '')
-            if doi and not url:
-                url = f"https://doi.org/{doi}"
+            url = paper.get('url', '')
+            if doi:
+                doi_url = f"https://doi.org/{doi}"
+                doi_valid = validate_doi(doi)
+                if not url:
+                    url = doi_url if doi_valid else ''
+            else:
+                doi_valid = None
             oa_pdf = paper.get('openAccessPdf') or {}
             pdf_url = oa_pdf.get('url', '')
             citations.append({
@@ -526,6 +550,8 @@ def find_citations_for_text(
                 'title': paper.get('title', ''),
                 'year': paper.get('year'),
                 'venue': paper.get('venue', ''),
+                'doi': doi,
+                'doi_valid': doi_valid,
                 'url': url,
                 'pdf_url': pdf_url,
                 'citation_count': paper.get('citationCount'),
