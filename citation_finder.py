@@ -590,3 +590,81 @@ def find_citations_for_text(
             results.append({'sentence': sentence, 'query': query, 'reason': reason, 'citations': citations})
 
     return results
+
+
+def stream_citations_for_text(
+    text: str,
+    citation_format: str = 'apa',
+    year_range: Optional[tuple[int, int]] = None,
+    sources: Optional[list[str]] = None,
+    results_per_sentence: int = 3,
+    open_access_only: bool = False,
+    fields_of_study: Optional[list[str]] = None,
+    min_citation_count: int = 0,
+    sort_by: str = 'citations',
+):
+    """Like find_citations_for_text but yields (index, result) as each sentence completes."""
+    FORMAT_MAP = {
+        'mla': format_mla, 'chicago': format_chicago, 'ieee': format_ieee,
+        'harvard': format_harvard, 'vancouver': format_vancouver, 'bibtex': format_bibtex,
+    }
+    fmt_fn = FORMAT_MAP.get(citation_format, format_apa)
+    fetch_limit = results_per_sentence * 3 if open_access_only else results_per_sentence
+
+    candidates = []
+    for sentence in split_sentences(text):
+        reason = get_citation_reason(sentence)
+        if reason is None:
+            continue
+        query = build_query(sentence)
+        if query:
+            candidates.append((sentence, query, reason))
+
+    if not candidates:
+        return
+
+    def _build_cits(papers):
+        cits = []
+        for paper in papers:
+            formatted = fmt_fn(paper)
+            ext_ids = paper.get('externalIds') or {}
+            doi = ext_ids.get('DOI', '')
+            url = paper.get('url', '')
+            if doi:
+                doi_valid = validate_doi(doi)
+                if not url:
+                    url = f"https://doi.org/{doi}" if doi_valid else ''
+            else:
+                doi_valid = None
+            oa_pdf = paper.get('openAccessPdf') or {}
+            cits.append({
+                'formatted': formatted, 'bibtex': format_bibtex(paper),
+                'ris': format_ris(paper), 'title': paper.get('title', ''),
+                'year': paper.get('year'), 'venue': paper.get('venue', ''),
+                'doi': doi, 'doi_valid': doi_valid,
+                'url': url, 'pdf_url': oa_pdf.get('url', ''),
+                'citation_count': paper.get('citationCount'),
+                'abstract': paper.get('abstract') or '',
+            })
+        return cits
+
+    def _worker(item):
+        sentence, query, reason = item
+        papers = search_papers(
+            query, year_range=year_range, sources=sources, limit=fetch_limit,
+            open_access_only=open_access_only, fields_of_study=fields_of_study,
+            min_citation_count=min_citation_count, sort_by=sort_by,
+        )
+        return sentence, query, reason, papers[:results_per_sentence]
+
+    with ThreadPoolExecutor(max_workers=min(8, len(candidates))) as pool:
+        future_to_idx = {pool.submit(_worker, c): i for i, c in enumerate(candidates)}
+        for future in as_completed(future_to_idx):
+            idx = future_to_idx[future]
+            try:
+                sentence, query, reason, papers = future.result()
+                citations = _build_cits(papers)
+                if citations:
+                    yield idx, {'sentence': sentence, 'query': query, 'reason': reason, 'citations': citations}
+            except Exception:
+                pass

@@ -578,23 +578,136 @@ Paste your paper or paragraph text here. The assistant will automatically detect
       sort_by: document.getElementById('sort-by').value,
     };
 
+    // Stream results sentence by sentence
+    const streamBuffer = {};
+    let streamCount = 0;
+    const fmt = payload.format.toUpperCase();
+
+    function flushStreamResults() {
+      const sortedKeys = Object.keys(streamBuffer).map(Number).sort((a,b)=>a-b);
+      const ordered = sortedKeys.map(k => streamBuffer[k]);
+      lastResults = ordered;
+      if (!ordered.length) return;
+      // Re-render header + append new cards
+      const countEl = panel.querySelector('.result-count');
+      if (countEl) {
+        countEl.textContent = `检测到 ${ordered.length} 个需引用的句子 / ${ordered.length} sentence(s) need citations`;
+      } else {
+        renderResults(ordered, fmt);
+        document.querySelectorAll('.card-body').forEach(el => { el.style.maxHeight = el.scrollHeight + 'px'; });
+      }
+    }
+
     try {
-      const resp = await fetch('/api/find-citations', {
+      const resp = await fetch('/api/stream-citations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
-      const data = await resp.json();
-
       if (!resp.ok) {
-        panel.innerHTML = `<div class="error-msg">${data.error || '请求失败 / Request failed.'}</div>`;
+        const err = await resp.json().catch(() => ({}));
+        panel.innerHTML = `<div class="error-msg">${err.error || '请求失败 / Request failed.'}</div>`;
         return;
       }
 
-      lastResults = data.results || [];
-      renderResults(lastResults, payload.format.toUpperCase());
-      if (lastResults.length) saveHistory(text, lastResults, payload.format);
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let sseBuffer = '';
+
+      // Show skeleton while waiting
+      panel.innerHTML = `<div class="result-header">
+        <span class="result-count">正在搜索... / Searching...</span>
+        <div class="export-group">
+          <button class="btn-export" onclick="exportAll('txt')">TXT</button>
+          <button class="btn-export" onclick="exportAll('bib')">BibTeX</button>
+          <button class="btn-export" onclick="exportAll('ris')">RIS</button>
+          <button class="btn-export" onclick="exportAll('csv')">CSV</button>
+        </div>
+      </div>`;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            if (event.type === 'result') {
+              streamBuffer[event.index] = event.data;
+              streamCount++;
+              // Append new card without full re-render
+              const idx = event.index;
+              const r = event.data;
+              const bodyId = `card-body-${idx}`;
+              let html = `<div class="result-card" id="stream-card-${idx}">
+                <div class="card-toggle" onclick="toggleCard('${bodyId}', this)">
+                  <div>
+                    <div class="sentence-label">
+                      句子 ${streamCount} / Sentence ${streamCount}
+                      ${r.reason ? `<span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);margin-left:6px;">— ${escHtml(r.reason)}</span>` : ''}
+                    </div>
+                    <div class="sentence-text">${escHtml(r.sentence)}</div>
+                  </div>
+                  <span class="toggle-icon">▲</span>
+                </div>
+                <div class="card-body" id="${bodyId}">
+                <div class="citations-label" style="margin-top:8px;">推荐引用 (${fmt}) / Suggested Citations</div>`;
+
+              r.citations.forEach((c, ci) => {
+                const idBase = `cit-${idx}-${ci}`;
+                html += `<div class="citation-item">
+                  <div class="citation-body">
+                    <div class="citation-formatted" id="${idBase}">${escHtml(c.formatted)}</div>
+                    <div class="citation-meta">`;
+                if (c.year) html += `<span class="citation-tag">${c.year}</span>`;
+                if (c.venue) html += `<span class="citation-tag">${escHtml(c.venue)}</span>`;
+                if (c.citation_count != null) html += `<span class="citation-tag">引用 ${c.citation_count}</span>`;
+                if (c.pdf_url) html += `<span class="citation-tag" style="background:#e6f4ea;color:#1a7f37;">Open Access</span>`;
+                if (c.doi_valid === true)  html += `<span class="citation-tag" style="background:#e6f4ea;color:#1a7f37;">DOI ✓</span>`;
+                if (c.doi_valid === false) html += `<span class="citation-tag" style="background:#fff1f0;color:#cf1322;">DOI ✗</span>`;
+                html += `</div>`;
+                if (c.abstract) {
+                  const absId = `abs-${idx}-${ci}`;
+                  const preview = c.abstract.length > 200 ? escHtml(c.abstract.slice(0, 200)) + '…' : escHtml(c.abstract);
+                  html += `<div class="citation-abstract" id="${absId}-preview">${preview}</div>`;
+                  if (c.abstract.length > 200) {
+                    html += `<div class="citation-abstract" id="${absId}-full" style="display:none;">${escHtml(c.abstract)}</div>`;
+                    html += `<button class="btn-abstract-toggle" onclick="toggleAbstract('${absId}', this)">展开摘要 ▾</button>`;
+                  }
+                }
+                const linkUrl = c.pdf_url || c.url;
+                if (linkUrl) {
+                  const label = c.pdf_url ? `PDF: ${escHtml(c.pdf_url)}` : escHtml(c.url);
+                  html += `<a class="citation-link" href="${escHtml(linkUrl)}" target="_blank" rel="noopener">${label}</a>`;
+                }
+                html += `</div><button class="btn-copy" onclick="copyCitation('${idBase}', this)">复制</button></div>`;
+              });
+              html += `</div></div>`;
+
+              panel.insertAdjacentHTML('beforeend', html);
+              const body = document.getElementById(bodyId);
+              if (body) body.style.maxHeight = body.scrollHeight + 'px';
+
+              // Update count
+              const countEl = panel.querySelector('.result-count');
+              if (countEl) countEl.textContent = `已找到 ${streamCount} 个 / Found ${streamCount} sentence(s)`;
+
+            } else if (event.type === 'done') {
+              if (!streamCount) {
+                panel.innerHTML = `<div class="empty-state"><div class="icon">✅</div><p>未检测到需要引用的句子。<br/>No sentences requiring citations were detected.</p></div>`;
+              } else {
+                const countEl = panel.querySelector('.result-count');
+                if (countEl) countEl.textContent = `检测到 ${streamCount} 个需引用的句子 / ${streamCount} sentence(s) need citations`;
+                if (lastResults.length) saveHistory(text, lastResults, payload.format);
+              }
+            }
+          } catch { /* malformed SSE line, skip */ }
+        }
+      }
 
     } catch (err) {
       panel.innerHTML = `<div class="error-msg">网络错误 / Network error: ${err.message}</div>`;
