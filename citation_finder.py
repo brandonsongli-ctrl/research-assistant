@@ -284,6 +284,9 @@ def search_papers(
                 if any(s in (p.get('venue') or '').lower() for s in src_lower)
             ] or papers  # fall back to all if none match
 
+        # Sort by citation count descending (papers without count ranked last)
+        papers.sort(key=lambda p: p.get('citationCount') or 0, reverse=True)
+
         return papers
     except requests.RequestException:
         return []
