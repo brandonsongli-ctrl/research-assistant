@@ -63,7 +63,25 @@ CITATION_INDICATORS = [
     r'\bapproximately \d+\b',
 ]
 
+CITATION_REASONS = [
+    'Studies claim', 'Research claims', 'Evidence cited',
+    'Passive claim', 'Attribution needed', 'Established claim',
+    'Statistical claim', 'Data claim', 'Expert opinion',
+    'Accepted belief', 'Impact claim', 'Effect claim',
+    'Percentage figure', 'Comparison claim', 'Significant claim',
+    'Causation claim', 'Causation claim',
+    'Correlation claim', 'Correlation claim',
+    'Comparative claim', 'Quantitative claim',
+    'Population claim', 'Prevalence claim',
+    'Prior literature', 'Study type',
+    'Risk/benefit claim', 'Risk claim',
+    'Definition claim', 'Reference needed',
+    'Temporal trend', 'Growing evidence',
+    'Numeric fact', 'Approximate figure',
+]
+
 COMPILED_PATTERNS = [re.compile(p, re.IGNORECASE) for p in CITATION_INDICATORS]
+COMPILED_REASONS = list(zip(COMPILED_PATTERNS, CITATION_REASONS))
 
 
 # Common title/academic abbreviations that should not trigger sentence splits
@@ -109,13 +127,17 @@ def split_sentences(text: str) -> list[str]:
 
 def needs_citation(sentence: str) -> bool:
     """Return True if the sentence likely needs a citation."""
-    # Skip sentences that already have citations like [1], (Smith, 2020), ^1, etc.
+    return get_citation_reason(sentence) is not None
+
+
+def get_citation_reason(sentence: str) -> Optional[str]:
+    """Return a human-readable reason why the sentence needs a citation, or None."""
     if re.search(r'\[\d+\]|\(\w[\w\s]*,?\s*\d{4}\)|\^\d+|ibid\.|op\.\s*cit\.', sentence, re.IGNORECASE):
-        return False
-    for pattern in COMPILED_PATTERNS:
+        return None
+    for pattern, reason in COMPILED_REASONS:
         if pattern.search(sentence):
-            return True
-    return False
+            return reason
+    return None
 
 
 _STOP_WORDS = {
@@ -490,20 +512,21 @@ def find_citations_for_text(
     fmt_fn = FORMAT_MAP.get(citation_format, format_apa)
     fetch_limit = results_per_sentence * 3 if open_access_only else results_per_sentence
 
-    # Collect candidate (sentence, query) pairs preserving order
+    # Collect candidate (sentence, query, reason) triples preserving order
     candidates = []
     for sentence in split_sentences(text):
-        if not needs_citation(sentence):
+        reason = get_citation_reason(sentence)
+        if reason is None:
             continue
         query = build_query(sentence)
         if query:
-            candidates.append((sentence, query))
+            candidates.append((sentence, query, reason))
 
     if not candidates:
         return []
 
-    def _fetch_and_build(sentence_query):
-        sentence, query = sentence_query
+    def _fetch_and_build(item):
+        sentence, query, reason = item
         papers = search_papers(
             query,
             year_range=year_range,
@@ -514,7 +537,7 @@ def find_citations_for_text(
             min_citation_count=min_citation_count,
             sort_by=sort_by,
         )
-        return sentence, query, papers[:results_per_sentence]
+        return sentence, query, reason, papers[:results_per_sentence]
 
     # Fire all queries in parallel (up to 8 workers)
     ordered: dict[int, tuple] = {}
@@ -561,9 +584,9 @@ def find_citations_for_text(
 
     results = []
     for idx in sorted(ordered):
-        sentence, query, papers = ordered[idx]
+        sentence, query, reason, papers = ordered[idx]
         citations = _build_citations(papers)
         if citations:
-            results.append({'sentence': sentence, 'query': query, 'citations': citations})
+            results.append({'sentence': sentence, 'query': query, 'reason': reason, 'citations': citations})
 
     return results

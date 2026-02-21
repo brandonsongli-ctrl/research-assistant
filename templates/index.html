@@ -570,7 +570,10 @@ Paste your paper or paragraph text here. The assistant will automatically detect
       html += `<div class="result-card">
         <div class="card-toggle" onclick="toggleCard('${bodyId}', this)">
           <div>
-            <div class="sentence-label">句子 ${i + 1} / Sentence ${i + 1}</div>
+            <div class="sentence-label">
+              句子 ${i + 1} / Sentence ${i + 1}
+              ${r.reason ? `<span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);margin-left:6px;">— ${escHtml(r.reason)}</span>` : ''}
+            </div>
             <div class="sentence-text">${escHtml(r.sentence)}</div>
           </div>
           <span class="toggle-icon">▲</span>
