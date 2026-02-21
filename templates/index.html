@@ -542,6 +542,7 @@ Paste your paper or paragraph text here. The assistant will automatically detect
       <div class="export-group">
         <button class="btn-export" onclick="exportAll('txt')">TXT</button>
         <button class="btn-export" onclick="exportAll('bib')">BibTeX</button>
+        <button class="btn-export" onclick="exportAll('ris')">RIS</button>
         <button class="btn-export" onclick="exportAll('csv')">CSV</button>
       </div>
     </div>`;
@@ -652,6 +653,16 @@ Paste your paper or paragraph text here. The assistant will automatically detect
         });
       });
       mimeType = 'text/plain;charset=utf-8';
+    } else if (type === 'ris') {
+      const seen = new Set();
+      lastResults.forEach(r => {
+        r.citations.forEach(c => {
+          if (c.ris && !seen.has(c.ris)) {
+            seen.add(c.ris);
+            out += c.ris + '\n\n';
+          }
+        });
+      });
     } else if (type === 'csv') {
       const esc = v => `"${String(v || '').replace(/"/g, '""')}"`;
       out = 'Sentence,Title,Year,Venue,Citation Count,Formatted,URL\n';

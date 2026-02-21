@@ -331,6 +331,38 @@ def format_bibtex(paper: dict) -> str:
     return '\n'.join(lines)
 
 
+def format_ris(paper: dict) -> str:
+    """Format as RIS entry (compatible with Zotero, Mendeley, EndNote)."""
+    authors = paper.get('authors', [])
+    year = paper.get('year', '')
+    title = paper.get('title', 'Untitled')
+    venue = paper.get('venue', '')
+    ext_ids = paper.get('externalIds') or {}
+    doi = ext_ids.get('DOI', '')
+    oa_pdf = paper.get('openAccessPdf') or {}
+    url = oa_pdf.get('url', '') or paper.get('url', '')
+
+    lines = ['TY  - JOUR']
+    for a in authors:
+        name = a.get('name', '')
+        parts = name.split()
+        if len(parts) >= 2:
+            lines.append(f"AU  - {parts[-1]}, {' '.join(parts[:-1])}")
+        elif name:
+            lines.append(f"AU  - {name}")
+    lines.append(f"TI  - {title}")
+    if venue:
+        lines.append(f"JO  - {venue}")
+    if year:
+        lines.append(f"PY  - {year}")
+    if doi:
+        lines.append(f"DO  - {doi}")
+    if url:
+        lines.append(f"UR  - {url}")
+    lines.append('ER  - ')
+    return '\n'.join(lines)
+
+
 def search_papers(
     query: str,
     year_range: Optional[tuple[int, int]] = None,
@@ -490,6 +522,7 @@ def find_citations_for_text(
             citations.append({
                 'formatted': formatted,
                 'bibtex': format_bibtex(paper),
+                'ris': format_ris(paper),
                 'title': paper.get('title', ''),
                 'year': paper.get('year'),
                 'venue': paper.get('venue', ''),
