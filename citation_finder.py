@@ -32,7 +32,7 @@ CITATION_INDICATORS = [
     r'\bis (widely|generally|commonly) (accepted|known|believed|recognized)\b',
     r'\bhas a significant (effect|impact|influence)\b',
     r'\b(increases|decreases|improves|reduces|enhances|affects)\b',
-    r'\b\d+\s*%\b',
+    r'\b\d+\s*%',
     r'\bcompared to\b',
     r'\bsignificant(ly)?\b',
     # Causation
