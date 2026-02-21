@@ -315,6 +315,34 @@
       font-size: 13px;
     }
 
+    .text-stats {
+      font-size: 11px;
+      color: var(--muted);
+      text-align: right;
+      margin-top: 4px;
+    }
+
+    .card-toggle {
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-toggle:hover .sentence-text { border-left-color: var(--primary-hover); }
+
+    .toggle-icon {
+      font-size: 12px;
+      color: var(--muted);
+      transition: transform .2s;
+      flex-shrink: 0;
+      margin-left: 8px;
+    }
+
+    .card-body { overflow: hidden; transition: max-height .25s ease; }
+    .card-body.collapsed { max-height: 0 !important; }
+
     @media (max-width: 768px) {
       .main { grid-template-columns: 1fr; max-height: none; }
       .panel-left { border-right: none; border-bottom: 1px solid var(--border); }
@@ -338,7 +366,9 @@
         placeholder="粘贴您的论文或段落文本，助手将自动识别需要引用的句子并搜索相关文献。
 
 Paste your paper or paragraph text here. The assistant will automatically detect sentences that need citations and find supporting literature."
+        oninput="updateStats()"
       ></textarea>
+      <div class="text-stats" id="text-stats">0 词 / 0 字符</div>
     </div>
 
     <div>
@@ -475,10 +505,17 @@ Paste your paper or paragraph text here. The assistant will automatically detect
     </div>`;
 
     results.forEach((r, i) => {
+      const bodyId = `card-body-${i}`;
       html += `<div class="result-card">
-        <div class="sentence-label">句子 ${i + 1} / Sentence ${i + 1}</div>
-        <div class="sentence-text">${escHtml(r.sentence)}</div>
-        <div class="citations-label">推荐引用 (${fmt}) / Suggested Citations</div>`;
+        <div class="card-toggle" onclick="toggleCard('${bodyId}', this)">
+          <div>
+            <div class="sentence-label">句子 ${i + 1} / Sentence ${i + 1}</div>
+            <div class="sentence-text">${escHtml(r.sentence)}</div>
+          </div>
+          <span class="toggle-icon">▲</span>
+        </div>
+        <div class="card-body" id="${bodyId}">
+        <div class="citations-label" style="margin-top:8px;">推荐引用 (${fmt}) / Suggested Citations</div>`;
 
       r.citations.forEach((c, ci) => {
         const idBase = `cit-${i}-${ci}`;
@@ -509,10 +546,14 @@ Paste your paper or paragraph text here. The assistant will automatically detect
         </div>`;
       });
 
-      html += `</div>`;
+      html += `</div></div>`;  // close card-body, result-card
     });
 
     panel.innerHTML = html;
+    // Set initial max-height for animation
+    document.querySelectorAll('.card-body').forEach(el => {
+      el.style.maxHeight = el.scrollHeight + 'px';
+    });
   }
 
   function copyCitation(id, btn) {
@@ -588,6 +629,30 @@ Paste your paper or paragraph text here. The assistant will automatically detect
     a.download = `citations_${fmt}_${Date.now()}.${ext}`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  function toggleCard(bodyId, toggleEl) {
+    const body = document.getElementById(bodyId);
+    if (!body) return;
+    const icon = toggleEl.querySelector('.toggle-icon');
+    if (body.classList.contains('collapsed')) {
+      body.classList.remove('collapsed');
+      body.style.maxHeight = body.scrollHeight + 'px';
+      if (icon) icon.style.transform = 'rotate(0deg)';
+    } else {
+      body.style.maxHeight = body.scrollHeight + 'px';
+      requestAnimationFrame(() => {
+        body.classList.add('collapsed');
+      });
+      if (icon) icon.style.transform = 'rotate(180deg)';
+    }
+  }
+
+  function updateStats() {
+    const text = document.getElementById('text-input').value;
+    const chars = text.length;
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    document.getElementById('text-stats').textContent = `${words} 词 / ${chars} 字符`;
   }
 
   function escHtml(str) {
