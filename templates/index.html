@@ -21,6 +21,20 @@
       --shadow: 0 1px 4px rgba(0,0,0,.08);
     }
 
+    [data-theme="dark"] {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --primary: #58a6ff;
+      --primary-hover: #79b8ff;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --tag-bg: #1f2937;
+      --tag-color: #58a6ff;
+      --success: #3fb950;
+      --shadow: 0 1px 4px rgba(0,0,0,.4);
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg);
@@ -407,6 +421,7 @@
   <div class="logo">引</div>
   <h1>学术引用助手</h1>
   <span>Research Citation Assistant</span>
+  <button id="theme-btn" onclick="toggleTheme()" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;color:var(--muted);font-family:inherit;transition:all .15s;" title="切换暗色模式">🌙</button>
 </header>
 
 <div class="main">
@@ -821,6 +836,22 @@ Paste your paper or paragraph text here. The assistant will automatically detect
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
   }
+
+  // ── Dark mode ─────────────────────────────────────────────────────────
+  function applyTheme(dark) {
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
+    document.getElementById('theme-btn').textContent = dark ? '☀️' : '🌙';
+  }
+
+  function toggleTheme() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const next = !isDark;
+    applyTheme(next);
+    localStorage.setItem('theme', next ? 'dark' : '');
+  }
+
+  // Apply saved theme on load
+  applyTheme(localStorage.getItem('theme') === 'dark');
 
   // ── History (localStorage) ────────────────────────────────────────────
   const HISTORY_KEY = 'citation_history';
