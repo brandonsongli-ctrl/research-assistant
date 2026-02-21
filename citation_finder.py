@@ -66,10 +66,26 @@ CITATION_INDICATORS = [
 COMPILED_PATTERNS = [re.compile(p, re.IGNORECASE) for p in CITATION_INDICATORS]
 
 
+# Common title/academic abbreviations that should not trigger sentence splits
+_ABBREV = re.compile(
+    r'\b(Dr|Mr|Mrs|Ms|Prof|Sr|Jr|vs|etc|al|Fig|et|cf|vol|no|pp|ed|eds|rev|dept|univ|govt|corp|inc|ltd|approx|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.',
+    re.IGNORECASE,
+)
+_INITIALS = re.compile(r'\b[A-Z]\.')  # single-letter initials
+
+
 def split_sentences(text: str) -> list[str]:
-    """Split text into sentences."""
-    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
-    return [s.strip() for s in sentences if len(s.strip()) > 20]
+    """Split text into sentences, avoiding splits after abbreviations and initials."""
+    # Temporarily mask abbreviations and initials with a placeholder
+    MASK = '\x00'
+    masked = _ABBREV.sub(lambda m: m.group(0).replace('.', MASK), text)
+    masked = _INITIALS.sub(lambda m: m.group(0).replace('.', MASK), masked)
+
+    # Split on sentence-ending punctuation followed by whitespace + capital/digit
+    parts = re.split(r'(?<=[.!?])\s+(?=[A-Z0-9\"\'])', masked)
+
+    # Restore masked dots and clean up
+    return [p.replace(MASK, '.').strip() for p in parts if len(p.strip()) > 20]
 
 
 def needs_citation(sentence: str) -> bool:
