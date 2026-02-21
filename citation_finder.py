@@ -393,6 +393,7 @@ def find_citations_for_text(
 
             citations.append({
                 'formatted': formatted,
+                'bibtex': format_bibtex(paper),
                 'title': paper.get('title', ''),
                 'year': paper.get('year'),
                 'venue': paper.get('venue', ''),

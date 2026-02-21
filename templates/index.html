@@ -182,6 +182,8 @@
 
     .btn-export:hover { border-color: var(--primary); color: var(--primary); }
 
+    .export-group { display: flex; gap: 6px; }
+
     .result-card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -465,7 +467,11 @@ Paste your paper or paragraph text here. The assistant will automatically detect
 
     let html = `<div class="result-header">
       <span class="result-count">检测到 ${results.length} 个需引用的句子 / ${results.length} sentence(s) need citations</span>
-      <button class="btn-export" onclick="exportAll()">导出全部 / Export All</button>
+      <div class="export-group">
+        <button class="btn-export" onclick="exportAll('txt')">TXT</button>
+        <button class="btn-export" onclick="exportAll('bib')">BibTeX</button>
+        <button class="btn-export" onclick="exportAll('csv')">CSV</button>
+      </div>
     </div>`;
 
     results.forEach((r, i) => {
@@ -533,29 +539,53 @@ Paste your paper or paragraph text here. The assistant will automatically detect
     });
   }
 
-  function exportAll() {
+  function exportAll(type = 'txt') {
     if (!lastResults.length) return;
     const fmt = document.getElementById('format-select').value.toUpperCase();
-    let out = `学术引用助手导出 / Research Citation Assistant Export\n`;
-    out += `格式 / Format: ${fmt}\n`;
-    out += `日期 / Date: ${new Date().toLocaleDateString()}\n\n`;
-    out += '='.repeat(60) + '\n\n';
+    let out = '', mimeType = 'text/plain;charset=utf-8', ext = type;
 
-    lastResults.forEach((r, i) => {
-      out += `[句子 ${i + 1}] ${r.sentence}\n\n`;
-      r.citations.forEach((c, ci) => {
-        out += `  [${ci + 1}] ${c.formatted}`;
-        if (c.url) out += `\n       ${c.url}`;
+    if (type === 'txt') {
+      out = `学术引用助手导出 / Research Citation Assistant Export\n`;
+      out += `格式 / Format: ${fmt}\n`;
+      out += `日期 / Date: ${new Date().toLocaleDateString()}\n\n`;
+      out += '='.repeat(60) + '\n\n';
+      lastResults.forEach((r, i) => {
+        out += `[句子 ${i + 1}] ${r.sentence}\n\n`;
+        r.citations.forEach((c, ci) => {
+          out += `  [${ci + 1}] ${c.formatted}`;
+          if (c.pdf_url || c.url) out += `\n       ${c.pdf_url || c.url}`;
+          out += '\n';
+        });
         out += '\n';
       });
-      out += '\n';
-    });
+    } else if (type === 'bib') {
+      const seen = new Set();
+      lastResults.forEach(r => {
+        r.citations.forEach(c => {
+          if (c.bibtex && !seen.has(c.bibtex)) {
+            seen.add(c.bibtex);
+            out += c.bibtex + '\n\n';
+          }
+        });
+      });
+      mimeType = 'text/plain;charset=utf-8';
+    } else if (type === 'csv') {
+      const esc = v => `"${String(v || '').replace(/"/g, '""')}"`;
+      out = 'Sentence,Title,Year,Venue,Citation Count,Formatted,URL\n';
+      lastResults.forEach(r => {
+        r.citations.forEach(c => {
+          out += [r.sentence, c.title, c.year, c.venue, c.citation_count, c.formatted, c.pdf_url || c.url]
+            .map(esc).join(',') + '\n';
+        });
+      });
+      mimeType = 'text/csv;charset=utf-8';
+    }
 
-    const blob = new Blob([out], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob([out], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `citations_${fmt}_${Date.now()}.txt`;
+    a.download = `citations_${fmt}_${Date.now()}.${ext}`;
     a.click();
     URL.revokeObjectURL(url);
   }
