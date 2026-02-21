@@ -8,6 +8,10 @@ from typing import Optional
 
 SEMANTIC_SCHOLAR_API = "https://api.semanticscholar.org/graph/v1/paper/search"
 
+# Simple in-process LRU-style cache (max 256 entries)
+_SEARCH_CACHE: dict = {}
+_CACHE_MAX = 256
+
 # Patterns that signal a claim needing citation
 CITATION_INDICATORS = [
     # Existing patterns
@@ -285,6 +289,10 @@ def search_papers(
     open_access_only: bool = False,
 ) -> list[dict]:
     """Search Semantic Scholar for papers matching query."""
+    cache_key = (query, year_range, tuple(sources or []), limit, open_access_only)
+    if cache_key in _SEARCH_CACHE:
+        return _SEARCH_CACHE[cache_key]
+
     params = {
         'query': query,
         'limit': limit,
@@ -314,6 +322,10 @@ def search_papers(
         # Sort by citation count descending (papers without count ranked last)
         papers.sort(key=lambda p: p.get('citationCount') or 0, reverse=True)
 
+        # Store in cache; evict oldest entry when full
+        if len(_SEARCH_CACHE) >= _CACHE_MAX:
+            _SEARCH_CACHE.pop(next(iter(_SEARCH_CACHE)))
+        _SEARCH_CACHE[cache_key] = papers
         return papers
     except requests.RequestException:
         return []
